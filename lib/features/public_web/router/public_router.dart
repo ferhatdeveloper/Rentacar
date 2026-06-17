@@ -60,7 +60,7 @@ class _PublicNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final isMobile = width < 768;
+    final isMobile = width < 1024;
 
     return Container(
       decoration: BoxDecoration(

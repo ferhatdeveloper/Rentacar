@@ -58,9 +58,8 @@ class AppVehicleCard extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      AppPriceTag(price: vehicle.dailyPrice),
+                      Expanded(child: AppPriceTag(price: vehicle.dailyPrice)),
                       if (vehicle.status == VehicleStatus.available)
                         FilledButton(
                           onPressed: onTap,
