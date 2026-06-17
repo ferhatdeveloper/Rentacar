@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rentacar
+      POSTGRES_PASSWORD: rentacar_secret
+      POSTGRES_DB: rentacar
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    environment:
+      PGRST_DB_URI: postgres://rentacar:rentacar_secret@db:5432/rentacar
+      PGRST_DB_SCHEMAS: api,public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: "your-super-secret-jwt-key-change-in-production-min-32-chars"
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3000
+
+volumes:
+  pgdata:
