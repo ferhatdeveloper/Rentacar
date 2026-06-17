@@ -1,15 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
+import '../../../rentals/presentation/providers/rental_providers.dart';
 import '../../../../shared/widgets/app_kpi_card.dart';
 
-class AdminDashboardPage extends StatelessWidget {
+class AdminDashboardPage extends ConsumerWidget {
   const AdminDashboardPage({super.key});
 
   @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final statsAsync = ref.watch(dashboardStatsProvider);
+
+    return statsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Dashboard yüklenemedi: $e')),
+      data: (stats) => _DashboardBody(stats: stats),
+    );
+  }
+}
+
+class _DashboardBody extends StatelessWidget {
+  const _DashboardBody({required this.stats});
+
+  final Map<String, dynamic> stats;
+
+  @override
   Widget build(BuildContext context) {
+    final utilization = stats['utilization_rate']?.toString() ?? '0';
+    final revenue = stats['monthly_revenue'];
+    final revenueLabel = revenue is num
+        ? '₺${(revenue / 1000).toStringAsFixed(1)}K'
+        : '₺0';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
@@ -40,30 +65,27 @@ class AdminDashboardPage extends StatelessWidget {
                 crossAxisSpacing: AppSpacing.lg,
                 mainAxisSpacing: AppSpacing.lg,
                 childAspectRatio: 1.6,
-                children: const [
+                children: [
                   AppKpiCard(
                     title: 'Aktif Kiralama',
-                    value: '12',
+                    value: '${stats['active_rentals'] ?? 0}',
                     icon: Icons.key,
-                    trend: '+2',
                   ),
                   AppKpiCard(
                     title: 'Bugün Teslim',
-                    value: '5',
+                    value: '${stats['today_pickups'] ?? 0}',
                     icon: Icons.login,
                   ),
                   AppKpiCard(
                     title: 'Doluluk Oranı',
-                    value: '%78',
+                    value: '%$utilization',
                     icon: Icons.pie_chart_outline,
-                    trend: '+5%',
                     accentColor: AppColors.success,
                   ),
                   AppKpiCard(
                     title: 'Bu Ay Gelir',
-                    value: '₺124.5K',
+                    value: revenueLabel,
                     icon: Icons.payments_outlined,
-                    trend: '+12%',
                   ),
                 ],
               );
@@ -71,21 +93,6 @@ class AdminDashboardPage extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           const _GanttPreview(),
-          const SizedBox(height: AppSpacing.xl),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _UpcomingList(title: 'Yaklaşan Teslimler', items: const [
-                '14:00 — BMW 320i (34 ABC 123)',
-                '16:30 — Mercedes GLC (34 DEF 456)',
-                '18:00 — Audi A6 (34 JKL 012)',
-              ])),
-              const SizedBox(width: AppSpacing.lg),
-              Expanded(child: _UpcomingList(title: 'Geciken İade', warning: true, items: const [
-                '09:00 — Renault Clio (34 GHI 789)',
-              ])),
-            ],
-          ),
         ],
       ),
     );
@@ -111,23 +118,23 @@ class _GanttPreview extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            ...const [
+            ...[
               _GanttRow(label: 'Sedan', segments: [
                 (0.0, 0.35, AppColors.success),
-                (0.35, 0.55, Color(0xFF2563EB)),
-                (0.55, 0.75, Color(0xFF7C3AED)),
+                (0.35, 0.55, const Color(0xFF2563EB)),
+                (0.55, 0.75, const Color(0xFF7C3AED)),
                 (0.75, 1.0, AppColors.success),
               ]),
               _GanttRow(label: 'SUV', segments: [
                 (0.0, 0.2, AppColors.success),
-                (0.2, 0.65, Color(0xFF2563EB)),
+                (0.2, 0.65, const Color(0xFF2563EB)),
                 (0.65, 0.8, AppColors.warning),
                 (0.8, 1.0, AppColors.success),
               ]),
               _GanttRow(label: 'Ekonomi', segments: [
-                (0.0, 0.45, Color(0xFF2563EB)),
+                (0.0, 0.45, const Color(0xFF2563EB)),
                 (0.45, 0.6, AppColors.success),
-                (0.6, 0.9, Color(0xFF2563EB)),
+                (0.6, 0.9, const Color(0xFF2563EB)),
               ]),
             ],
           ],
@@ -185,53 +192,6 @@ class _GanttRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _UpcomingList extends StatelessWidget {
-  const _UpcomingList({
-    required this.title,
-    required this.items,
-    this.warning = false,
-  });
-
-  final String title;
-  final List<String> items;
-  final bool warning;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                if (warning)
-                  const Icon(Icons.warning_amber, color: AppColors.warning, size: 20),
-                if (warning) const SizedBox(width: AppSpacing.sm),
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ...items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                child: Text(item),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

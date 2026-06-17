@@ -29,7 +29,7 @@ class AppVehicleCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _VehicleImage(category: vehicle.category),
+            _VehicleImage(categoryName: vehicle.categoryName),
             Padding(
               padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.lg),
               child: Column(
@@ -51,7 +51,7 @@ class AppVehicleCard extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '${vehicle.category} · ${vehicle.transmission} · ${vehicle.fuelType}',
+                    '${vehicle.categoryName} · ${vehicle.transmissionLabel} · ${vehicle.fuelTypeLabel}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -84,11 +84,11 @@ class AppVehicleCard extends StatelessWidget {
 }
 
 class _VehicleImage extends StatelessWidget {
-  const _VehicleImage({required this.category});
+  const _VehicleImage({required this.categoryName});
 
-  final String category;
+  final String categoryName;
 
-  IconData get _icon => switch (category.toLowerCase()) {
+  IconData get _icon => switch (categoryName.toLowerCase()) {
         'suv' => Icons.directions_car_filled,
         'sedan' => Icons.time_to_leave,
         'ekonomi' => Icons.commute,
@@ -142,7 +142,7 @@ class _VehicleImage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                category,
+                categoryName,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,

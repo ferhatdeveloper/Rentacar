@@ -11,6 +11,39 @@
 - **Premium Mobility** tasarım sistemi — Lacivert + kehribar palet
 - **PostgreSQL** — RLS multi-tenant, EXCLUDE constraint ile double-booking önleme
 
+## Mimari
+
+```
+lib/
+├── core/           # Config, API client, design system
+├── features/
+│   ├── fleet/      # Araç & şube — domain / data / providers
+│   ├── rentals/    # Rezervasyon, fiyat, dashboard stats
+│   ├── public_web/ # Kiracı vitrin sitesi
+│   └── admin_web/  # Operasyon paneli
+database/migrations/
+  001_initial_schema.sql
+  002_api_layer.sql   # Views, RPC, seed data
+```
+
+### API (PostgREST RPC)
+| Fonksiyon | Açıklama |
+|-----------|----------|
+| `calculate_rental_price` | Fiyat hesaplama |
+| `create_rental` | Rezervasyon oluştur (double-booking korumalı) |
+| `get_dashboard_stats` | Admin KPI |
+
+### Ortam değişkenleri
+
+```bash
+flutter run -d chrome \
+  --dart-define=API_URL=http://localhost:3000 \
+  --dart-define=APP_MODE=admin \
+  --dart-define=USE_DEMO_FALLBACK=true
+```
+
+`USE_DEMO_FALLBACK=true` iken API kapalı olsa bile demo veri ile çalışır.
+
 ## Hızlı Başlangıç
 
 ### Flutter

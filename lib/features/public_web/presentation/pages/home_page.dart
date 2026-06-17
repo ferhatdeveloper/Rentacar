@@ -8,6 +8,8 @@ import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../features/fleet/domain/entities/vehicle.dart';
+import '../../../../features/fleet/presentation/providers/fleet_providers.dart';
+import '../../../../shared/widgets/app_empty_state.dart';
 import '../../../../shared/widgets/app_vehicle_card.dart';
 import '../widgets/booking_search_bar.dart';
 import '../widgets/public_footer.dart';
@@ -105,17 +107,14 @@ class _HeroSection extends StatelessWidget {
   }
 }
 
-class _PopularVehiclesSection extends StatelessWidget {
+class _PopularVehiclesSection extends ConsumerWidget {
   const _PopularVehiclesSection({required this.isMobile});
 
   final bool isMobile;
 
   @override
-  Widget build(BuildContext context) {
-    final vehicles = Vehicle.demoVehicles
-        .where((v) => v.status == VehicleStatus.available)
-        .take(4)
-        .toList();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final vehiclesAsync = ref.watch(availableVehiclesProvider);
 
     return Center(
       child: ConstrainedBox(
@@ -144,40 +143,72 @@ class _PopularVehiclesSection extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              if (isMobile)
-                ...vehicles.map(
-                  (v) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: AppVehicleCard(
-                      vehicle: v,
-                      compact: true,
-                      onTap: () => context.go('/rezervasyon'),
-                    ),
+              vehiclesAsync.when(
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.xl),
+                    child: CircularProgressIndicator(),
                   ),
-                )
-              else
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    crossAxisSpacing: AppSpacing.lg,
-                    mainAxisSpacing: AppSpacing.lg,
-                    childAspectRatio: 0.72,
-                  ),
-                  itemCount: vehicles.length,
-                  itemBuilder: (context, index) {
-                    final vehicle = vehicles[index];
-                    return AppVehicleCard(
-                      vehicle: vehicle,
-                      onTap: () => context.go('/rezervasyon'),
-                    );
-                  },
                 ),
+                error: (e, _) => AppEmptyState(
+                  title: 'Araçlar yüklenemedi',
+                  onRetry: () => ref.invalidate(availableVehiclesProvider),
+                ),
+                data: (vehicles) => _VehicleGrid(
+                  vehicles: vehicles.take(4).toList(),
+                  isMobile: isMobile,
+                ),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _VehicleGrid extends StatelessWidget {
+  const _VehicleGrid({required this.vehicles, required this.isMobile});
+
+  final List<Vehicle> vehicles;
+  final bool isMobile;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isMobile) {
+      return Column(
+        children: vehicles
+            .map(
+              (v) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: AppVehicleCard(
+                  vehicle: v,
+                  compact: true,
+                  onTap: () => context.go('/rezervasyon'),
+                ),
+              ),
+            )
+            .toList(),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: AppSpacing.lg,
+        mainAxisSpacing: AppSpacing.lg,
+        childAspectRatio: 0.72,
+      ),
+      itemCount: vehicles.length,
+      itemBuilder: (context, index) {
+        final vehicle = vehicles[index];
+        return AppVehicleCard(
+          vehicle: vehicle,
+          onTap: () => context.go('/rezervasyon'),
+        );
+      },
     );
   }
 }
