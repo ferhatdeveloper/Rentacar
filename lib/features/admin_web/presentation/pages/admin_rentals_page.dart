@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -23,10 +24,7 @@ class AdminRentalsPage extends ConsumerWidget {
         children: [
           Text(
             'Rezervasyonlar',
-            style: GoogleFonts.outfit(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
+            style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: AppSpacing.xl),
           Expanded(
@@ -73,24 +71,40 @@ class _RentalsTable extends StatelessWidget {
             DataColumn(label: Text('İade')),
             DataColumn(label: Text('Durum')),
             DataColumn(label: Text('Tutar')),
+            DataColumn(label: Text('İşlem')),
           ],
-          rows: rentals
-              .map(
-                (r) => DataRow(cells: [
-                  DataCell(Text(r.rentalNumber)),
-                  DataCell(Text(r.customerName ?? '—')),
-                  DataCell(Text(r.vehicleLabel)),
-                  DataCell(Text(_dateFmt.format(r.pickupAt.toLocal()))),
-                  DataCell(Text(_dateFmt.format(r.returnAt.toLocal()))),
-                  DataCell(_RentalStatusChip(status: r.status)),
-                  DataCell(Text(
-                    r.totalPrice != null
-                        ? '₺${r.totalPrice!.toStringAsFixed(0)}'
-                        : '—',
-                  )),
-                ]),
-              )
-              .toList(),
+          rows: rentals.map((r) {
+            return DataRow(cells: [
+              DataCell(Text(r.rentalNumber)),
+              DataCell(Text(r.customerName ?? '—')),
+              DataCell(Text(r.vehicleLabel)),
+              DataCell(Text(_dateFmt.format(r.pickupAt.toLocal()))),
+              DataCell(Text(_dateFmt.format(r.returnAt.toLocal()))),
+              DataCell(_RentalStatusChip(status: r.status)),
+              DataCell(Text(
+                r.totalPrice != null ? '₺${r.totalPrice!.toStringAsFixed(0)}' : '—',
+              )),
+              DataCell(Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (r.status == RentalStatus.confirmed)
+                    TextButton(
+                      onPressed: () => context.go(
+                        '/admin/checkin/${r.id}?mode=pickup',
+                      ),
+                      child: const Text('Teslim'),
+                    ),
+                  if (r.status == RentalStatus.active)
+                    TextButton(
+                      onPressed: () => context.go(
+                        '/admin/checkin/${r.id}?mode=return',
+                      ),
+                      child: const Text('İade'),
+                    ),
+                ],
+              )),
+            ]);
+          }).toList(),
         ),
       ),
     );

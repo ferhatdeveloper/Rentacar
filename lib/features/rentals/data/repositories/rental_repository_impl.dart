@@ -22,10 +22,39 @@ class RentalRepositoryImpl implements RentalRepository {
           .map((e) => Rental.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     } catch (_) {
-      if (AppConfig.useDemoFallback) return [];
+      if (AppConfig.useDemoFallback) return _demoRentals;
       throw const NetworkException();
     }
   }
+
+  static final _demoRentals = [
+    Rental(
+      id: '60000000-0000-0000-0000-000000000001',
+      tenantId: AppConfig.demoTenantId,
+      rentalNumber: 'RNT-2026-00001',
+      pickupAt: DateTime.now().add(const Duration(days: 1)),
+      returnAt: DateTime.now().add(const Duration(days: 4)),
+      status: RentalStatus.confirmed,
+      customerName: 'Ahmet Yılmaz',
+      brand: 'BMW',
+      model: '320i',
+      plateNumber: '34 ABC 123',
+      totalPrice: 6660,
+    ),
+    Rental(
+      id: '60000000-0000-0000-0000-000000000002',
+      tenantId: AppConfig.demoTenantId,
+      rentalNumber: 'RNT-2026-00002',
+      pickupAt: DateTime.now().subtract(const Duration(days: 1)),
+      returnAt: DateTime.now().add(const Duration(days: 2)),
+      status: RentalStatus.active,
+      customerName: 'Mehmet Demir',
+      brand: 'Mercedes',
+      model: 'GLC 200',
+      plateNumber: '34 DEF 456',
+      totalPrice: 8640,
+    ),
+  ];
 
   @override
   Future<RentalPriceQuote> calculatePrice({

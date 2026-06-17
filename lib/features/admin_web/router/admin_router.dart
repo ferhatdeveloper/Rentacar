@@ -1,16 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/design_system/app_colors.dart';
-import '../../../core/design_system/app_spacing.dart';
+import '../../auth/presentation/pages/admin_login_page.dart';
+import '../../auth/presentation/providers/auth_providers.dart';
+import '../../../../core/design_system/app_colors.dart';
+import '../../../../core/design_system/app_spacing.dart';
+import '../presentation/pages/admin_checkin_page.dart';
+import '../presentation/pages/admin_customers_page.dart';
 import '../presentation/pages/admin_dashboard_page.dart';
 import '../presentation/pages/admin_fleet_page.dart';
+import '../presentation/pages/admin_payments_page.dart';
 import '../presentation/pages/admin_rentals_page.dart';
+import '../presentation/pages/admin_reports_page.dart';
+import '../presentation/pages/admin_settings_page.dart';
 import '../presentation/pages/website_settings_page.dart';
 
+final _adminRootNavigatorKey = GlobalKey<NavigatorState>();
+
 final adminRouter = GoRouter(
+  navigatorKey: _adminRootNavigatorKey,
   initialLocation: '/admin',
+  redirect: (context, state) {
+    final container = ProviderScope.containerOf(context);
+    final auth = container.read(authNotifierProvider);
+    if (auth.isLoading) return null;
+
+    final isLogin = state.matchedLocation == '/admin/login';
+    final isLoggedIn = auth.valueOrNull != null;
+
+    if (!isLoggedIn && !isLogin) return '/admin/login';
+    if (isLoggedIn && isLogin) return '/admin';
+    return null;
+  },
   routes: [
+    GoRoute(
+      path: '/admin/login',
+      builder: (context, state) => const AdminLoginPage(),
+    ),
     ShellRoute(
       builder: (context, state, child) => AdminShell(child: child),
       routes: [
@@ -19,77 +46,106 @@ final adminRouter = GoRouter(
           builder: (context, state) => const AdminDashboardPage(),
         ),
         GoRoute(
-          path: '/admin/fleet',
-          builder: (context, state) => const AdminFleetPage(),
-        ),
-        GoRoute(
           path: '/admin/rentals',
           builder: (context, state) => const AdminRentalsPage(),
         ),
         GoRoute(
+          path: '/admin/fleet',
+          builder: (context, state) => const AdminFleetPage(),
+        ),
+        GoRoute(
+          path: '/admin/customers',
+          builder: (context, state) => const AdminCustomersPage(),
+        ),
+        GoRoute(
+          path: '/admin/payments',
+          builder: (context, state) => const AdminPaymentsPage(),
+        ),
+        GoRoute(
+          path: '/admin/reports',
+          builder: (context, state) => const AdminReportsPage(),
+        ),
+        GoRoute(
           path: '/admin/website',
           builder: (context, state) => const WebsiteSettingsPage(),
+        ),
+        GoRoute(
+          path: '/admin/settings',
+          builder: (context, state) => const AdminSettingsPage(),
+        ),
+        GoRoute(
+          path: '/admin/checkin/:rentalId',
+          builder: (context, state) => AdminCheckInPage(
+            rentalId: state.pathParameters['rentalId']!,
+            mode: state.uri.queryParameters['mode'] ?? 'pickup',
+          ),
         ),
       ],
     ),
   ],
 );
 
-class AdminShell extends StatefulWidget {
+class AdminShell extends ConsumerWidget {
   const AdminShell({super.key, required this.child});
 
   final Widget child;
-
-  @override
-  State<AdminShell> createState() => _AdminShellState();
-}
-
-class _AdminShellState extends State<AdminShell> {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   static const _navItems = [
     (Icons.dashboard_outlined, 'Dashboard', '/admin'),
     (Icons.calendar_month_outlined, 'Rezervasyonlar', '/admin/rentals'),
     (Icons.directions_car_outlined, 'Filo', '/admin/fleet'),
-    (Icons.people_outline, 'Müşteriler', '/admin'),
-    (Icons.payments_outlined, 'Ödemeler', '/admin'),
-    (Icons.bar_chart_outlined, 'Raporlar', '/admin'),
+    (Icons.people_outline, 'Müşteriler', '/admin/customers'),
+    (Icons.payments_outlined, 'Ödemeler', '/admin/payments'),
+    (Icons.bar_chart_outlined, 'Raporlar', '/admin/reports'),
     (Icons.language, 'Web Sitesi', '/admin/website'),
-    (Icons.settings_outlined, 'Ayarlar', '/admin'),
+    (Icons.settings_outlined, 'Ayarlar', '/admin/settings'),
   ];
 
   int _indexForLocation(String location) {
-    final index = _navItems.indexWhere((item) => location.startsWith(item.$3));
-    if (index == -1) return 0;
-    // /admin exact match should beat partial matches
-    if (location == '/admin') return 0;
-    if (location.startsWith('/admin/rentals')) return 1;
+    if (location.startsWith('/admin/rentals') || location.startsWith('/admin/checkin')) {
+      return 1;
+    }
     if (location.startsWith('/admin/fleet')) return 2;
+    if (location.startsWith('/admin/customers')) return 3;
+    if (location.startsWith('/admin/payments')) return 4;
+    if (location.startsWith('/admin/reports')) return 5;
     if (location.startsWith('/admin/website')) return 6;
-    return index;
+    if (location.startsWith('/admin/settings')) return 7;
+    return 0;
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final width = MediaQuery.sizeOf(context).width;
     final showSidebar = width >= 900;
     final location = GoRouterState.of(context).uri.toString();
     final selectedIndex = _indexForLocation(location);
+    final authUser = ref.watch(authNotifierProvider).valueOrNull;
+    final scaffoldKey = GlobalKey<ScaffoldState>();
 
     return Scaffold(
-      key: _scaffoldKey,
+      key: scaffoldKey,
       body: Row(
         children: [
-          if (showSidebar) _Sidebar(
-            items: _navItems,
-            selectedIndex: selectedIndex,
-            onSelect: (index) => context.go(_navItems[index].$3),
-          ),
+          if (showSidebar)
+            _Sidebar(
+              items: _navItems,
+              selectedIndex: selectedIndex,
+              onSelect: (index) => context.go(_navItems[index].$3),
+            ),
           Expanded(
             child: Column(
               children: [
-                _AdminTopBar(showMenu: !showSidebar, scaffoldKey: _scaffoldKey),
-                Expanded(child: widget.child),
+                _AdminTopBar(
+                  showMenu: !showSidebar,
+                  scaffoldKey: scaffoldKey,
+                  userName: authUser?.fullName ?? 'Admin',
+                  onLogout: () async {
+                    await ref.read(authNotifierProvider.notifier).logout();
+                    if (context.mounted) context.go('/admin/login');
+                  },
+                ),
+                Expanded(child: child),
               ],
             ),
           ),
@@ -179,10 +235,17 @@ class _Sidebar extends StatelessWidget {
 }
 
 class _AdminTopBar extends StatelessWidget {
-  const _AdminTopBar({required this.showMenu, required this.scaffoldKey});
+  const _AdminTopBar({
+    required this.showMenu,
+    required this.scaffoldKey,
+    required this.userName,
+    required this.onLogout,
+  });
 
   final bool showMenu;
   final GlobalKey<ScaffoldState> scaffoldKey;
+  final String userName;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -203,14 +266,23 @@ class _AdminTopBar extends StatelessWidget {
               onPressed: () => scaffoldKey.currentState?.openDrawer(),
             ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
-          ),
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.amber,
-            child: Text('A', style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.w700)),
+          Text(userName, style: const TextStyle(fontWeight: FontWeight.w500)),
+          const SizedBox(width: AppSpacing.sm),
+          PopupMenuButton<String>(
+            icon: CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.amber,
+              child: Text(
+                userName.isNotEmpty ? userName[0] : 'A',
+                style: const TextStyle(color: AppColors.navy, fontWeight: FontWeight.w700),
+              ),
+            ),
+            onSelected: (v) {
+              if (v == 'logout') onLogout();
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'logout', child: Text('Çıkış Yap')),
+            ],
           ),
           const SizedBox(width: AppSpacing.sm),
         ],

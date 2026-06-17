@@ -7,7 +7,8 @@
 ## Özellikler
 
 - **Kiracı vitrin sitesi** — Hero, araç listesi, 4 adımlı rezervasyon wizard
-- **Admin paneli** — Dashboard, KPI, Gantt filo önizleme, web sitesi ayarları
+- **Admin paneli** — Dashboard, KPI, rezervasyonlar, filo, müşteriler, ödemeler, raporlar, check-in/out
+- **Auth** — Demo admin girişi (`admin@premium-rent.com` / `admin123`)
 - **Premium Mobility** tasarım sistemi — Lacivert + kehribar palet
 - **PostgreSQL** — RLS multi-tenant, EXCLUDE constraint ile double-booking önleme
 
@@ -17,6 +18,10 @@
 lib/
 ├── core/           # Config, API client, design system
 ├── features/
+│   ├── auth/       # Admin oturum yönetimi
+│   ├── customers/  # Müşteri CRUD
+│   ├── payments/   # Ödeme kayıtları & gelir raporu
+│   ├── inspections/# Check-in / check-out
 │   ├── fleet/      # Araç & şube — domain / data / providers
 │   ├── rentals/    # Rezervasyon, fiyat, dashboard stats
 │   ├── public_web/ # Kiracı vitrin sitesi
@@ -24,6 +29,7 @@ lib/
 database/migrations/
   001_initial_schema.sql
   002_api_layer.sql   # Views, RPC, seed data
+  003_auth_inspections_payments.sql
 ```
 
 ### API (PostgREST RPC)
@@ -31,7 +37,23 @@ database/migrations/
 |-----------|----------|
 | `calculate_rental_price` | Fiyat hesaplama |
 | `create_rental` | Rezervasyon oluştur (double-booking korumalı) |
+| `create_customer` | Vitrin rezervasyonunda müşteri kaydı |
+| `complete_checkin` | Araç teslim |
+| `complete_checkout` | Araç iade |
+| `record_payment` | Ödeme kaydı |
+| `get_revenue_report` | Gelir raporu |
 | `get_dashboard_stats` | Admin KPI |
+
+### Admin rotaları
+
+| Rota | Açıklama |
+|------|----------|
+| `/admin/login` | Giriş |
+| `/admin/rentals` | Rezervasyon listesi (Teslim / İade) |
+| `/admin/checkin/:id?mode=pickup\|return` | Check-in / check-out |
+| `/admin/customers` | Müşteriler |
+| `/admin/payments` | Ödemeler |
+| `/admin/reports` | Gelir raporu |
 
 ### Ortam değişkenleri
 

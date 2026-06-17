@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
+import '../../../customers/domain/entities/customer.dart';
+import '../../../customers/presentation/providers/customer_providers.dart';
 import '../../../fleet/domain/entities/branch.dart';
 import '../../../fleet/domain/entities/vehicle.dart';
 import '../../../fleet/presentation/providers/fleet_providers.dart';
@@ -27,6 +29,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   DateTime _pickupAt = DateTime.now().add(const Duration(days: 1));
   DateTime _returnAt = DateTime.now().add(const Duration(days: 4));
   RentalPriceQuote? _quote;
+  String? _customerId;
+
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _licenseCtrl = TextEditingController();
 
   static const _steps = [
     'Tarih & Lokasyon',
@@ -35,7 +43,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     'Ödeme',
   ];
 
-  static const _demoCustomerId = '40000000-0000-0000-0000-000000000001';
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _licenseCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +144,18 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   bool get _canContinue {
     if (_step == 0) return _pickupBranch != null && _returnBranch != null;
     if (_step == 1) return _selectedVehicle != null;
+    if (_step == 2) {
+      return _nameCtrl.text.trim().isNotEmpty &&
+          _emailCtrl.text.trim().isNotEmpty &&
+          _phoneCtrl.text.trim().isNotEmpty;
+    }
     return true;
+  }
+
+  (String, String) _splitName() {
+    final parts = _nameCtrl.text.trim().split(RegExp(r'\s+'));
+    if (parts.length <= 1) return (parts.first, '');
+    return (parts.first, parts.sublist(1).join(' '));
   }
 
   Future<void> _onNext() async {
@@ -142,13 +168,32 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       setState(() => _quote = quote);
     }
 
+    if (_step == 2) {
+      final (firstName, lastName) = _splitName();
+      final customer = await ref.read(customerRepositoryProvider).createCustomer(
+            CreateCustomerRequest(
+              firstName: firstName,
+              lastName: lastName.isEmpty ? '-' : lastName,
+              email: _emailCtrl.text.trim(),
+              phone: _phoneCtrl.text.trim(),
+              identityNumber: _licenseCtrl.text.trim().isEmpty
+                  ? null
+                  : _licenseCtrl.text.trim(),
+            ),
+          );
+      _customerId = customer.id;
+    }
+
     if (_step == _steps.length - 1) {
-      if (_selectedVehicle == null || _pickupBranch == null || _returnBranch == null) {
+      if (_selectedVehicle == null ||
+          _pickupBranch == null ||
+          _returnBranch == null ||
+          _customerId == null) {
         return;
       }
       await ref.read(bookingNotifierProvider.notifier).submit(
             CreateRentalRequest(
-              customerId: _demoCustomerId,
+              customerId: _customerId!,
               vehicleId: _selectedVehicle!.id,
               categoryId: _selectedVehicle!.categoryId,
               pickupBranchId: _pickupBranch!.id,
@@ -205,7 +250,13 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             onSelect: (v) => setState(() => _selectedVehicle = v),
           ),
         ),
-      2 => const _StepDriverInfo(),
+      2 => _StepDriverInfo(
+            nameController: _nameCtrl,
+            emailController: _emailCtrl,
+            phoneController: _phoneCtrl,
+            licenseController: _licenseCtrl,
+            onChanged: () => setState(() {}),
+          ),
       3 => const _StepPayment(),
       _ => const SizedBox.shrink(),
     };
@@ -368,22 +419,52 @@ class _StepVehicleSelect extends StatelessWidget {
 }
 
 class _StepDriverInfo extends StatelessWidget {
-  const _StepDriverInfo();
+  const _StepDriverInfo({
+    required this.nameController,
+    required this.emailController,
+    required this.phoneController,
+    required this.licenseController,
+    required this.onChanged,
+  });
+
+  final TextEditingController nameController;
+  final TextEditingController emailController;
+  final TextEditingController phoneController;
+  final TextEditingController licenseController;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return const Card(
+    return Card(
       child: Padding(
-        padding: EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           children: [
-            TextField(decoration: InputDecoration(labelText: 'Ad Soyad')),
-            SizedBox(height: AppSpacing.md),
-            TextField(decoration: InputDecoration(labelText: 'E-posta')),
-            SizedBox(height: AppSpacing.md),
-            TextField(decoration: InputDecoration(labelText: 'Telefon')),
-            SizedBox(height: AppSpacing.md),
-            TextField(decoration: InputDecoration(labelText: 'Ehliyet No')),
+            TextField(
+              controller: nameController,
+              onChanged: (_) => onChanged(),
+              decoration: const InputDecoration(labelText: 'Ad Soyad'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              onChanged: (_) => onChanged(),
+              decoration: const InputDecoration(labelText: 'E-posta'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              onChanged: (_) => onChanged(),
+              decoration: const InputDecoration(labelText: 'Telefon'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: licenseController,
+              onChanged: (_) => onChanged(),
+              decoration: const InputDecoration(labelText: 'Ehliyet No'),
+            ),
           ],
         ),
       ),
