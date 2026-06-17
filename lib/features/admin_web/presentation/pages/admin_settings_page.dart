@@ -4,7 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/design_system/app_spacing.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../payments/presentation/providers/iraq_payment_providers.dart';
+import '../../../../shared/widgets/language_selector.dart';
 
 class AdminSettingsPage extends ConsumerWidget {
   const AdminSettingsPage({super.key});
@@ -12,6 +15,8 @@ class AdminSettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final branding = ref.watch(tenantBrandingProvider);
+    final l10n = AppLocalizations.of(context);
+    final nebulaStatus = ref.watch(nebulaConnectionProvider);
 
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -30,13 +35,22 @@ class AdminSettingsPage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Firma Bilgileri',
+                    Text(l10n.settingsRegionIraq,
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                     const SizedBox(height: AppSpacing.md),
                     _SettingRow(label: 'Firma Adı', value: branding.name),
-                    _SettingRow(label: 'Slug', value: branding.slug),
+                    _SettingRow(label: 'Para Birimi', value: AppConfig.currencyCode),
                     _SettingRow(label: 'Tenant ID', value: AppConfig.demoTenantId),
                     _SettingRow(label: 'API URL', value: AppConfig.apiUrl),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Text(l10n.settingsLanguage,
+                            style: const TextStyle(fontWeight: FontWeight.w500)),
+                        const SizedBox(width: AppSpacing.lg),
+                        const LanguageSelector(),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -48,26 +62,40 @@ class AdminSettingsPage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Entegrasyonlar',
+                    Text(l10n.settingsPaymentGateways,
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                     const SizedBox(height: AppSpacing.md),
                     const ListTile(
-                      leading: Icon(Icons.payment),
-                      title: Text('iyzico Ödeme'),
-                      subtitle: Text('Yapılandırma bekliyor'),
-                      trailing: Icon(Icons.chevron_right),
+                      leading: Icon(Icons.account_balance_wallet),
+                      title: Text('FIB'),
+                      subtitle: Text('First Iraqi Bank — FIB_API_URL'),
                     ),
                     const ListTile(
-                      leading: Icon(Icons.receipt_long),
-                      title: Text('e-Fatura / e-Arşiv'),
-                      subtitle: Text('GİB entegratör bağlantısı'),
-                      trailing: Icon(Icons.chevron_right),
+                      leading: Icon(Icons.flash_on),
+                      title: Text('FastPay'),
+                      subtitle: Text('FASTPAY_API_URL'),
                     ),
                     const ListTile(
-                      leading: Icon(Icons.sms),
-                      title: Text('SMS Bildirimleri'),
-                      subtitle: Text('Netgsm / İleti Merkezi'),
-                      trailing: Icon(Icons.chevron_right),
+                      leading: Icon(Icons.swap_horiz),
+                      title: Text('Switch'),
+                      subtitle: Text('SWITCH_API_URL'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.point_of_sale),
+                      title: const Text('Nebula POS'),
+                      subtitle: Text('NEBULA_URL: ${AppConfig.nebulaBaseUrl}'),
+                      trailing: nebulaStatus.when(
+                        loading: () => const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        error: (_, __) => const Icon(Icons.error_outline, color: Colors.red),
+                        data: (ok) => Icon(
+                          ok ? Icons.check_circle : Icons.cancel,
+                          color: ok ? Colors.green : Colors.orange,
+                        ),
+                      ),
                     ),
                   ],
                 ),

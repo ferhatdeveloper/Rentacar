@@ -17,6 +17,7 @@ abstract interface class InspectionRepository {
     required int fuelLevel,
     double damageCost = 0,
     String? notes,
+    List<String> photoUrls = const [],
     String? tenantId,
   });
 }
@@ -56,6 +57,7 @@ class InspectionRepositoryImpl implements InspectionRepository {
     required int fuelLevel,
     double damageCost = 0,
     String? notes,
+    List<String> photoUrls = const [],
     String? tenantId,
   }) async {
     try {
@@ -66,6 +68,7 @@ class InspectionRepositoryImpl implements InspectionRepository {
             'p_fuel_level': fuelLevel,
             'p_damage_cost': damageCost,
             'p_notes': notes,
+            'p_photo_urls': photoUrls,
           }) as Map);
     } catch (_) {
       if (AppConfig.useDemoFallback) {

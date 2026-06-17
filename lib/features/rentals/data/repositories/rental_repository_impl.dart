@@ -102,7 +102,27 @@ class RentalRepositoryImpl implements RentalRepository {
       );
       return Map<String, dynamic>.from(result as Map);
     } catch (e) {
+      if (AppConfig.useDemoFallback) {
+        return {
+          'id': '60000000-0000-0000-0000-${DateTime.now().millisecondsSinceEpoch}',
+          'rental_number': 'RNT-DEMO-${DateTime.now().millisecondsSinceEpoch % 100000}',
+          'status': 'confirmed',
+        };
+      }
       throw ApiException.fromPostgrest(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> cancelRental(String rentalId, {String? tenantId}) async {
+    try {
+      return Map<String, dynamic>.from(await _client.rpc('cancel_rental', params: {
+            'p_tenant_id': tenantId ?? AppConfig.demoTenantId,
+            'p_rental_id': rentalId,
+          }) as Map);
+    } catch (_) {
+      if (AppConfig.useDemoFallback) return {'id': rentalId, 'status': 'cancelled'};
+      throw const NetworkException();
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/design_system/app_colors.dart';
 import '../../core/design_system/app_spacing.dart';
+import '../../core/formatters/currency_formatter.dart';
 import '../../features/fleet/domain/entities/vehicle.dart';
 
 class AppStatusBadge extends StatelessWidget {
@@ -47,14 +48,13 @@ class AppPriceTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final formatted = CurrencyFormatter.format(price, context);
     return RichText(
       text: TextSpan(
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
         children: [
           TextSpan(
-            text: '₺${price.toStringAsFixed(0)}',
+            text: formatted,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: AppColors.amber,
                   fontWeight: FontWeight.w700,

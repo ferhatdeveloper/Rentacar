@@ -1,12 +1,16 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 
 import '../../../../core/config/app_config.dart';
 import '../../domain/entities/auth_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
+  AuthRepositoryImpl(this._client);
+
+  final SupabaseClient _client;
   static const _sessionKey = 'rentacar_auth_session';
 
   @override
@@ -16,13 +20,7 @@ class AuthRepositoryImpl implements AuthRepository {
     if (raw == null) return null;
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
-      return AuthUser(
-        id: map['id'] as String,
-        tenantId: map['tenant_id'] as String,
-        email: map['email'] as String,
-        fullName: map['full_name'] as String,
-        role: UserRole.fromValue(map['role'] as String? ?? 'staff'),
-      );
+      return _userFromMap(map);
     } catch (_) {
       return null;
     }
@@ -33,23 +31,26 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    // Demo auth — production: Supabase Auth veya API RPC
-    if (email == 'admin@premium-rent.com' && password == 'admin123') {
-      const user = AuthUser.demo;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _sessionKey,
-        jsonEncode({
-          'id': user.id,
-          'tenant_id': user.tenantId,
-          'email': user.email,
-          'full_name': user.fullName,
-          'role': user.role.value,
-        }),
-      );
+    try {
+      final result = await _client.rpc('login_tenant_user', params: {
+        'p_tenant_id': AppConfig.demoTenantId,
+        'p_email': email.trim(),
+        'p_password': password,
+      });
+      final map = Map<String, dynamic>.from(result as Map);
+      final user = _userFromMap(map);
+      await _saveSession(user);
       return user;
+    } catch (_) {
+      if (AppConfig.useDemoFallback &&
+          email == DemoCredentials.email &&
+          password == DemoCredentials.password) {
+        final user = AuthUser.demo;
+        await _saveSession(user);
+        return user;
+      }
+      throw Exception('Geçersiz e-posta veya şifre');
     }
-    throw Exception('Geçersiz e-posta veya şifre');
   }
 
   @override
@@ -57,9 +58,30 @@ class AuthRepositoryImpl implements AuthRepository {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionKey);
   }
+
+  Future<void> _saveSession(AuthUser user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _sessionKey,
+      jsonEncode({
+        'id': user.id,
+        'tenant_id': user.tenantId,
+        'email': user.email,
+        'full_name': user.fullName,
+        'role': user.role.value,
+      }),
+    );
+  }
+
+  AuthUser _userFromMap(Map<String, dynamic> map) => AuthUser(
+        id: map['id'] as String,
+        tenantId: map['tenant_id'] as String,
+        email: map['email'] as String,
+        fullName: map['full_name'] as String? ?? '',
+        role: UserRole.fromValue(map['role'] as String? ?? 'staff'),
+      );
 }
 
-/// Demo giriş bilgileri (geliştirme)
 abstract final class DemoCredentials {
   static const email = 'admin@premium-rent.com';
   static const password = 'admin123';

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../config/tenant_branding.dart';
 import '../design_system/app_theme.dart';
+import 'branding_provider.dart';
 
-final tenantBrandingProvider = Provider<TenantBranding>((ref) {
-  return TenantBranding.demo;
-});
+export 'branding_provider.dart';
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
 

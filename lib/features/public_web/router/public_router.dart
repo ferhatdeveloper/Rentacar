@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/tenant_branding.dart';
 import '../../../core/design_system/app_colors.dart';
 import '../../../core/design_system/app_spacing.dart';
+import '../../../core/l10n/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../shared/widgets/language_selector.dart';
 import '../presentation/pages/booking_page.dart';
 import '../presentation/pages/home_page.dart';
 import '../presentation/pages/vehicles_page.dart';
@@ -61,6 +63,7 @@ class _PublicNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final isMobile = width < 1024;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       decoration: BoxDecoration(
@@ -94,18 +97,19 @@ class _PublicNavBar extends StatelessWidget {
                   ),
                   if (!isMobile) ...[
                     const Spacer(),
-                    _NavLink(label: 'Araçlar', onTap: () => context.go('/araclar')),
+                    _NavLink(label: l10n.navVehicles, onTap: () => context.go('/araclar')),
                     _NavLink(
-                      label: 'Rezervasyon',
+                      label: l10n.navBooking,
                       onTap: () => context.go('/rezervasyon'),
                     ),
-                    const SizedBox(width: AppSpacing.lg),
+                    const LanguageSelector(compact: true),
+                    const SizedBox(width: AppSpacing.sm),
                     FilledButton(
                       onPressed: () => context.go('/rezervasyon'),
-                      child: const Text('Hemen Kirala'),
+                      child: Text(l10n.navRentNow),
                     ),
                   ] else ...[
-                    const Spacer(),
+                    const LanguageSelector(compact: true),
                     IconButton(
                       onPressed: () => context.go('/rezervasyon'),
                       icon: const Icon(Icons.search),

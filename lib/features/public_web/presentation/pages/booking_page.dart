@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
+import '../../../../core/formatters/currency_formatter.dart';
+import '../../../../core/l10n/app_localizations.dart';
+import '../../../payments/domain/entities/iraq_payment.dart';
+import '../../../payments/presentation/providers/payment_providers.dart';
+import '../../../payments/presentation/providers/iraq_payment_providers.dart';
+import '../../../payments/presentation/widgets/payment_method_selector.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../../customers/presentation/providers/customer_providers.dart';
 import '../../../fleet/domain/entities/branch.dart';
@@ -35,13 +42,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _licenseCtrl = TextEditingController();
-
-  static const _steps = [
-    'Tarih & Lokasyon',
-    'Araç Seç',
-    'Bilgiler',
-    'Ödeme',
-  ];
+  bool _paymentProcessing = false;
 
   @override
   void dispose() {
@@ -54,10 +55,13 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final steps = l10n.bookingSteps;
     final isMobile = MediaQuery.sizeOf(context).width < 900;
     final bookingState = ref.watch(bookingNotifierProvider);
     final branchesAsync = ref.watch(branchListProvider);
     final availableAsync = ref.watch(availableVehiclesProvider);
+    final isLoading = bookingState.isLoading || _paymentProcessing;
 
     return Center(
       child: ConstrainedBox(
@@ -68,14 +72,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Rezervasyon',
+                l10n.bookingTitle,
                 style: GoogleFonts.outfit(
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-              _StepIndicator(steps: _steps, currentStep: _step),
+              _StepIndicator(steps: steps, currentStep: _step),
               const SizedBox(height: AppSpacing.xl),
               if (bookingState.hasError)
                 Padding(
@@ -116,21 +120,17 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 children: [
                   if (_step > 0)
                     OutlinedButton(
-                      onPressed: bookingState.isLoading
-                          ? null
-                          : () => setState(() => _step--),
-                      child: const Text('Geri'),
+                      onPressed: isLoading ? null : () => setState(() => _step--),
+                      child: Text(l10n.btnBack),
                     )
                   else
                     const SizedBox.shrink(),
                   AppButton(
-                    label: _step == _steps.length - 1
-                        ? (bookingState.isLoading ? 'İşleniyor...' : 'Rezervasyonu Onayla')
-                        : 'Devam',
-                    isLoading: bookingState.isLoading,
-                    onPressed: bookingState.isLoading || !_canContinue
-                        ? null
-                        : _onNext,
+                    label: _step == steps.length - 1
+                        ? (isLoading ? l10n.btnProcessing : l10n.btnConfirmBooking)
+                        : l10n.btnContinue,
+                    isLoading: isLoading,
+                    onPressed: isLoading || !_canContinue(steps.length) ? null : _onNext,
                   ),
                 ],
               ),
@@ -141,13 +141,16 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     );
   }
 
-  bool get _canContinue {
+  bool _canContinue(int stepCount) {
     if (_step == 0) return _pickupBranch != null && _returnBranch != null;
     if (_step == 1) return _selectedVehicle != null;
     if (_step == 2) {
       return _nameCtrl.text.trim().isNotEmpty &&
           _emailCtrl.text.trim().isNotEmpty &&
           _phoneCtrl.text.trim().isNotEmpty;
+    }
+    if (_step == stepCount - 1) {
+      return true;
     }
     return true;
   }
@@ -159,6 +162,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   }
 
   Future<void> _onNext() async {
+    final l10n = AppLocalizations.of(context);
+    final lastStep = l10n.bookingSteps.length - 1;
+
     if (_step == 1 && _selectedVehicle != null) {
       final quote = await ref.read(bookingNotifierProvider.notifier).calculatePrice(
             categoryId: _selectedVehicle!.categoryId,
@@ -184,13 +190,38 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       _customerId = customer.id;
     }
 
-    if (_step == _steps.length - 1) {
+    if (_step == lastStep) {
       if (_selectedVehicle == null ||
           _pickupBranch == null ||
           _returnBranch == null ||
-          _customerId == null) {
+          _customerId == null ||
+          _quote == null) {
         return;
       }
+
+      final paymentMethod = ref.read(selectedPaymentMethodProvider);
+      setState(() => _paymentProcessing = true);
+      final paymentResult = await ref.read(paymentProcessorProvider).process(
+            PaymentRequest(
+              method: paymentMethod,
+              amount: _quote!.totalPrice,
+              currencyCode: AppConfig.currencyCode,
+              referenceId: _customerId!,
+              description: 'Rental booking',
+              customerPhone: _phoneCtrl.text.trim(),
+              customerEmail: _emailCtrl.text.trim(),
+            ),
+          );
+      if (!mounted) return;
+      setState(() => _paymentProcessing = false);
+
+      if (!paymentResult.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(paymentResult.message ?? 'Payment failed')),
+        );
+        return;
+      }
+
       await ref.read(bookingNotifierProvider.notifier).submit(
             CreateRentalRequest(
               customerId: _customerId!,
@@ -205,10 +236,30 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       if (!mounted) return;
       final result = ref.read(bookingNotifierProvider).value;
       if (result != null) {
+        final rentalId = result['id']?.toString();
+        if (rentalId != null && _quote != null) {
+          final payRepo = ref.read(paymentRepositoryProvider);
+          await payRepo.recordPayment(
+            rentalId: rentalId,
+            customerId: _customerId!,
+            type: 'rental',
+            amount: _quote!.totalPrice,
+            method: paymentMethod.code,
+            provider: paymentMethod.displayName,
+            providerTransactionId: paymentResult.transactionId,
+          );
+          await payRepo.createInvoice(
+            rentalId: rentalId,
+            customerId: _customerId!,
+            subtotal: _quote!.basePrice,
+            taxAmount: _quote!.taxAmount,
+          );
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Rezervasyon oluşturuldu: ${result['rental_number'] ?? 'OK'}',
+              '${l10n.bookingSuccess}: ${result['rental_number'] ?? 'OK'}',
             ),
           ),
         );
@@ -257,7 +308,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             licenseController: _licenseCtrl,
             onChanged: () => setState(() {}),
           ),
-      3 => const _StepPayment(),
+      3 => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.lg),
+              child: PaymentMethodSelector(),
+            ),
+          ),
       _ => const SizedBox.shrink(),
     };
   }
@@ -334,6 +390,7 @@ class _StepLocation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -341,9 +398,9 @@ class _StepLocation extends StatelessWidget {
           children: [
             DropdownButtonFormField<String>(
               initialValue: pickupBranch?.id,
-              decoration: const InputDecoration(
-                labelText: 'Alış Şubesi',
-                prefixIcon: Icon(Icons.location_on_outlined),
+              decoration: InputDecoration(
+                labelText: l10n.formPickupBranch,
+                prefixIcon: const Icon(Icons.location_on_outlined),
               ),
               items: branches
                   .map((b) => DropdownMenuItem(value: b.id, child: Text(b.name)))
@@ -356,9 +413,9 @@ class _StepLocation extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String>(
               initialValue: returnBranch?.id,
-              decoration: const InputDecoration(
-                labelText: 'İade Şubesi',
-                prefixIcon: Icon(Icons.location_on_outlined),
+              decoration: InputDecoration(
+                labelText: l10n.formReturnBranch,
+                prefixIcon: const Icon(Icons.location_on_outlined),
               ),
               items: branches
                   .map((b) => DropdownMenuItem(value: b.id, child: Text(b.name)))
@@ -435,6 +492,7 @@ class _StepDriverInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -443,57 +501,27 @@ class _StepDriverInfo extends StatelessWidget {
             TextField(
               controller: nameController,
               onChanged: (_) => onChanged(),
-              decoration: const InputDecoration(labelText: 'Ad Soyad'),
+              decoration: InputDecoration(labelText: l10n.formFullName),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
               onChanged: (_) => onChanged(),
-              decoration: const InputDecoration(labelText: 'E-posta'),
+              decoration: InputDecoration(labelText: l10n.formEmail),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: phoneController,
               keyboardType: TextInputType.phone,
               onChanged: (_) => onChanged(),
-              decoration: const InputDecoration(labelText: 'Telefon'),
+              decoration: InputDecoration(labelText: l10n.formPhone),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: licenseController,
               onChanged: (_) => onChanged(),
-              decoration: const InputDecoration(labelText: 'Ehliyet No'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StepPayment extends StatelessWidget {
-  const _StepPayment();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Ödeme yöntemi seçin'),
-            const SizedBox(height: AppSpacing.md),
-            ListTile(
-              leading: const Icon(Icons.credit_card),
-              title: const Text('Kredi / Banka Kartı'),
-              trailing: Icon(Icons.check_circle, color: AppColors.amber),
-            ),
-            const Divider(),
-            Text(
-              'Depozito tutarı kiralama bitiminde iade edilir.',
-              style: Theme.of(context).textTheme.bodySmall,
+              decoration: InputDecoration(labelText: l10n.formLicense),
             ),
           ],
         ),
@@ -510,6 +538,7 @@ class _SummaryPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -517,7 +546,7 @@ class _SummaryPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Rezervasyon Özeti',
+              l10n.summaryTitle,
               style: GoogleFonts.outfit(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -531,26 +560,26 @@ class _SummaryPanel extends StatelessWidget {
             ],
             if (quote != null) ...[
               _SummaryRow(
-                label: 'Kiralama (${quote!.days} gün)',
-                value: '₺${quote!.basePrice.toStringAsFixed(0)}',
+                label: l10n.summaryRentalDays(quote!.days),
+                value: CurrencyFormatter.format(quote!.basePrice, context),
               ),
               _SummaryRow(
-                label: 'KDV (%20)',
-                value: '₺${quote!.taxAmount.toStringAsFixed(0)}',
+                label: l10n.summaryTax,
+                value: CurrencyFormatter.format(quote!.taxAmount, context),
               ),
               _SummaryRow(
-                label: 'Depozito',
-                value: '₺${quote!.depositAmount.toStringAsFixed(0)}',
+                label: l10n.summaryDeposit,
+                value: CurrencyFormatter.format(quote!.depositAmount, context),
               ),
               const Divider(height: AppSpacing.xl),
               _SummaryRow(
-                label: 'Toplam',
-                value: '₺${quote!.totalPrice.toStringAsFixed(0)}',
+                label: l10n.summaryTotal,
+                value: CurrencyFormatter.format(quote!.totalPrice, context),
                 bold: true,
               ),
             ] else
               Text(
-                'Araç seçildikten sonra fiyat hesaplanır.',
+                l10n.summaryPricePending,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
           ],

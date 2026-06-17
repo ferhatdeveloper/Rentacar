@@ -7,6 +7,8 @@
 ## Özellikler
 
 - **Kiracı vitrin sitesi** — Hero, araç listesi, 4 adımlı rezervasyon wizard
+- **4 dil desteği** — Arapça, Türkçe, İngilizce, Kürtçe (Sorani) + RTL
+- **Irak ödemeleri** — FIB, FastPay, Switch, Nebula POS
 - **Admin paneli** — Dashboard, KPI, rezervasyonlar, filo, müşteriler, ödemeler, raporlar, check-in/out
 - **Auth** — Demo admin girişi (`admin@premium-rent.com` / `admin123`)
 - **Premium Mobility** tasarım sistemi — Lacivert + kehribar palet
@@ -30,6 +32,7 @@ database/migrations/
   001_initial_schema.sql
   002_api_layer.sql   # Views, RPC, seed data
   003_auth_inspections_payments.sql
+  004_iraq_completion.sql
 ```
 
 ### API (PostgREST RPC)
@@ -112,6 +115,12 @@ docker-compose.yml          # Postgres + PostgREST
 | Değişken | Açıklama | Varsayılan |
 |----------|----------|------------|
 | `APP_MODE` | `public` veya `admin` | `public` |
+| `NEBULA_URL` | Nebula WebService adresi | `localhost:9092` |
+| `FIB_API_URL` | FIB ödeme API | — |
+| `FASTPAY_API_URL` | FastPay API | — |
+| `SWITCH_API_URL` | Switch API | — |
+
+Detaylı Irak yapılandırması: [docs/IRAQ_PAYMENTS.md](docs/IRAQ_PAYMENTS.md)
 
 ## Lisans
 

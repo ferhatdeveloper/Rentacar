@@ -31,10 +31,10 @@ class TenantBranding extends Equatable {
 
   static const demo = TenantBranding(
     tenantId: 'demo',
-    name: 'Premium Rent',
-    slug: 'premium-rent',
-    contactPhone: '+90 212 555 0100',
-    whatsappNumber: '905555010000',
+    name: 'Premium Rent Iraq',
+    slug: 'premium-rent-iq',
+    contactPhone: '+964 770 000 0000',
+    whatsappNumber: '9647700000000',
   );
 
   @override

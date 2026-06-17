@@ -3,14 +3,67 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design_system/app_spacing.dart';
+import '../../../../core/config/tenant_branding.dart';
 import '../../../../core/providers/app_providers.dart';
 
-class WebsiteSettingsPage extends ConsumerWidget {
+class WebsiteSettingsPage extends ConsumerStatefulWidget {
   const WebsiteSettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WebsiteSettingsPage> createState() => _WebsiteSettingsPageState();
+}
+
+class _WebsiteSettingsPageState extends ConsumerState<WebsiteSettingsPage> {
+  final _heroTitleCtrl = TextEditingController();
+  final _heroSubtitleCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  bool _fieldsLoaded = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _heroTitleCtrl.dispose();
+    _heroSubtitleCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  void _loadFields(TenantBranding b) {
+    if (_fieldsLoaded) return;
+    _heroTitleCtrl.text = b.heroTitle;
+    _heroSubtitleCtrl.text = b.heroSubtitle;
+    _phoneCtrl.text = b.contactPhone ?? '';
+    _fieldsLoaded = true;
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await ref.read(tenantBrandingProvider.notifier).save(
+            heroTitle: _heroTitleCtrl.text.trim(),
+            heroSubtitle: _heroSubtitleCtrl.text.trim(),
+            contactPhone: _phoneCtrl.text.trim(),
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ayarlar kaydedildi')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Kayıt hatası: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final branding = ref.watch(tenantBrandingProvider);
+    _loadFields(branding);
 
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -25,15 +78,7 @@ class WebsiteSettingsPage extends ConsumerWidget {
                 children: [
                   Text(
                     'Web Sitesi Ayarları',
-                    style: GoogleFonts.outfit(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Müşterilerinize görünen vitrin sitenizi özelleştirin',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   Card(
@@ -41,29 +86,25 @@ class WebsiteSettingsPage extends ConsumerWidget {
                       padding: const EdgeInsets.all(AppSpacing.lg),
                       child: Column(
                         children: [
-                          TextFormField(
-                            initialValue: branding.heroTitle,
+                          TextField(
+                            controller: _heroTitleCtrl,
                             decoration: const InputDecoration(labelText: 'Hero Başlık'),
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          TextFormField(
-                            initialValue: branding.heroSubtitle,
+                          TextField(
+                            controller: _heroSubtitleCtrl,
                             maxLines: 3,
                             decoration: const InputDecoration(labelText: 'Hero Alt Metin'),
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          TextFormField(
-                            initialValue: branding.contactPhone,
+                          TextField(
+                            controller: _phoneCtrl,
                             decoration: const InputDecoration(labelText: 'Telefon'),
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           FilledButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Ayarlar kaydedildi (demo)')),
-                              );
-                            },
-                            child: const Text('Kaydet'),
+                            onPressed: _saving ? null : _save,
+                            child: Text(_saving ? 'Kaydediliyor...' : 'Kaydet'),
                           ),
                         ],
                       ),
@@ -81,51 +122,32 @@ class WebsiteSettingsPage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Önizleme',
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-                    ),
+                    Text('Önizleme', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                     const SizedBox(height: AppSpacing.md),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(AppSpacing.lg),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [
-                            branding.primaryColor,
-                            branding.primaryColor.withValues(alpha: 0.8),
-                          ],
+                          colors: [branding.primaryColor, branding.primaryColor.withValues(alpha: 0.8)],
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            branding.name,
-                            style: const TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
+                          Text(branding.name, style: const TextStyle(color: Colors.white70, fontSize: 12)),
                           const SizedBox(height: AppSpacing.sm),
                           Text(
-                            branding.heroTitle,
-                            style: GoogleFonts.outfit(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            _heroTitleCtrl.text,
+                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
                           ),
-                          const SizedBox(height: AppSpacing.sm),
                           Text(
-                            branding.heroSubtitle,
+                            _heroSubtitleCtrl.text,
                             style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'Canlı site: ${branding.slug}.rentacar.app',
-                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),

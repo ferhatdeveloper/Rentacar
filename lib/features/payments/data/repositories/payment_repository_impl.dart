@@ -57,6 +57,9 @@ class PaymentRepositoryImpl implements PaymentRepository {
     required double amount,
     String method = 'card',
     String? tenantId,
+    String currency = 'IQD',
+    String? provider,
+    String? providerTransactionId,
   }) async {
     try {
       return Map<String, dynamic>.from(await _client.rpc('record_payment', params: {
@@ -66,9 +69,36 @@ class PaymentRepositoryImpl implements PaymentRepository {
             'p_type': type,
             'p_amount': amount,
             'p_method': method,
+            'p_currency': currency,
+            'p_provider': provider,
+            'p_provider_transaction_id': providerTransactionId,
           }) as Map);
     } catch (_) {
       if (AppConfig.useDemoFallback) return {'id': 'demo', 'status': 'completed'};
+      throw const NetworkException();
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> createInvoice({
+    required String rentalId,
+    required String customerId,
+    required double subtotal,
+    required double taxAmount,
+    String? tenantId,
+  }) async {
+    try {
+      return Map<String, dynamic>.from(await _client.rpc('create_invoice', params: {
+            'p_tenant_id': tenantId ?? AppConfig.demoTenantId,
+            'p_rental_id': rentalId,
+            'p_customer_id': customerId,
+            'p_subtotal': subtotal,
+            'p_tax_amount': taxAmount,
+          }) as Map);
+    } catch (_) {
+      if (AppConfig.useDemoFallback) {
+        return {'id': 'demo-inv', 'invoice_number': 'INV-DEMO-001'};
+      }
       throw const NetworkException();
     }
   }

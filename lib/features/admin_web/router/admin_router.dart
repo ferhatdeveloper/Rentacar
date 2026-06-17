@@ -14,6 +14,7 @@ import '../presentation/pages/admin_payments_page.dart';
 import '../presentation/pages/admin_rentals_page.dart';
 import '../presentation/pages/admin_reports_page.dart';
 import '../presentation/pages/admin_settings_page.dart';
+import '../presentation/pages/admin_maintenance_page.dart';
 import '../presentation/pages/website_settings_page.dart';
 
 final _adminRootNavigatorKey = GlobalKey<NavigatorState>();
@@ -66,6 +67,14 @@ final adminRouter = GoRouter(
           builder: (context, state) => const AdminReportsPage(),
         ),
         GoRoute(
+          path: '/admin/maintenance',
+          builder: (context, state) => const AdminMaintenancePage(),
+        ),
+        GoRoute(
+          path: '/admin/invoices',
+          builder: (context, state) => const AdminInvoicesPage(),
+        ),
+        GoRoute(
           path: '/admin/website',
           builder: (context, state) => const WebsiteSettingsPage(),
         ),
@@ -97,6 +106,8 @@ class AdminShell extends ConsumerWidget {
     (Icons.people_outline, 'Müşteriler', '/admin/customers'),
     (Icons.payments_outlined, 'Ödemeler', '/admin/payments'),
     (Icons.bar_chart_outlined, 'Raporlar', '/admin/reports'),
+    (Icons.build_outlined, 'Bakım', '/admin/maintenance'),
+    (Icons.receipt_long, 'Faturalar', '/admin/invoices'),
     (Icons.language, 'Web Sitesi', '/admin/website'),
     (Icons.settings_outlined, 'Ayarlar', '/admin/settings'),
   ];
@@ -109,8 +120,10 @@ class AdminShell extends ConsumerWidget {
     if (location.startsWith('/admin/customers')) return 3;
     if (location.startsWith('/admin/payments')) return 4;
     if (location.startsWith('/admin/reports')) return 5;
-    if (location.startsWith('/admin/website')) return 6;
-    if (location.startsWith('/admin/settings')) return 7;
+    if (location.startsWith('/admin/maintenance')) return 6;
+    if (location.startsWith('/admin/invoices')) return 7;
+    if (location.startsWith('/admin/website')) return 8;
+    if (location.startsWith('/admin/settings')) return 9;
     return 0;
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/formatters/currency_formatter.dart';
 import '../../../../core/design_system/app_spacing.dart';
 import '../../../payments/presentation/providers/payment_providers.dart';
 import '../../../rentals/presentation/providers/rental_providers.dart';
@@ -38,7 +39,10 @@ class AdminReportsPage extends ConsumerWidget {
               children: [
                 AppKpiCard(
                   title: '30 Gün Gelir',
-                  value: '₺${(rev['total_revenue'] as num?)?.toStringAsFixed(0) ?? '0'}',
+                  value: CurrencyFormatter.format(
+                    (rev['total_revenue'] as num?)?.toDouble() ?? 0,
+                    context,
+                  ),
                   icon: Icons.payments_outlined,
                 ),
                 AppKpiCard(
@@ -48,7 +52,10 @@ class AdminReportsPage extends ConsumerWidget {
                 ),
                 AppKpiCard(
                   title: 'Ort. Kiralama Tutarı',
-                  value: '₺${(rev['avg_daily_rate'] as num?)?.toStringAsFixed(0) ?? '0'}',
+                  value: CurrencyFormatter.format(
+                    (rev['avg_daily_rate'] as num?)?.toDouble() ?? 0,
+                    context,
+                  ),
                   icon: Icons.trending_up,
                 ),
                 statsAsync.when(

@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/auth_user.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../../../core/network/api_client.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepositoryImpl();
+  return AuthRepositoryImpl(ref.watch(supabaseClientProvider));
 });
 
 final authStateProvider = FutureProvider<AuthUser?>((ref) async {

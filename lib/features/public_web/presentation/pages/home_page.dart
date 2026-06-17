@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../features/fleet/domain/entities/vehicle.dart';
 import '../../../../features/fleet/presentation/providers/fleet_providers.dart';
@@ -47,6 +48,8 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -72,7 +75,7 @@ class _HeroSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    branding.heroTitle,
+                    l10n.heroTitle,
                     style: GoogleFonts.outfit(
                       fontSize: isMobile ? 32 : 48,
                       fontWeight: FontWeight.w700,
@@ -85,7 +88,7 @@ class _HeroSection extends StatelessWidget {
                       .slideY(begin: 0.1, end: 0),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    branding.heroSubtitle,
+                    l10n.heroSubtitle,
                     style: GoogleFonts.sourceSans3(
                       fontSize: isMobile ? 16 : 18,
                       color: Colors.white.withValues(alpha: 0.8),
@@ -115,6 +118,7 @@ class _PopularVehiclesSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vehiclesAsync = ref.watch(availableVehiclesProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Center(
       child: ConstrainedBox(
@@ -130,7 +134,7 @@ class _PopularVehiclesSection extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Popüler Araçlar',
+                    l10n.homePopularVehicles,
                     style: GoogleFonts.outfit(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
@@ -138,7 +142,7 @@ class _PopularVehiclesSection extends ConsumerWidget {
                   ),
                   TextButton(
                     onPressed: () => context.go('/araclar'),
-                    child: const Text('Tümünü Gör'),
+                    child: Text(l10n.homeSeeAll),
                   ),
                 ],
               ),
@@ -151,7 +155,7 @@ class _PopularVehiclesSection extends ConsumerWidget {
                   ),
                 ),
                 error: (e, _) => AppEmptyState(
-                  title: 'Araçlar yüklenemedi',
+                  title: l10n.homeVehiclesLoadError,
                   onRetry: () => ref.invalidate(availableVehiclesProvider),
                 ),
                 data: (vehicles) => _VehicleGrid(

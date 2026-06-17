@@ -39,6 +39,7 @@ class CheckInOutNotifier extends AutoDisposeAsyncNotifier<void> {
     required int fuel,
     double damageCost = 0,
     String? notes,
+    List<String> photoUrls = const [],
   }) async {
     state = const AsyncLoading();
     try {
@@ -48,6 +49,7 @@ class CheckInOutNotifier extends AutoDisposeAsyncNotifier<void> {
             fuelLevel: fuel,
             damageCost: damageCost,
             notes: notes,
+            photoUrls: photoUrls,
           );
       state = const AsyncData(null);
       return result;

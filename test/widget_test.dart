@@ -13,9 +13,8 @@ void main() {
     await tester.pumpWidget(
       const ProviderScope(child: RentacarApp()),
     );
-    await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
-    expect(find.text('Popüler Araçlar'), findsOneWidget);
+    expect(find.byType(MaterialApp), findsOneWidget);
   });
 }

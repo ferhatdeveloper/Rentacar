@@ -10,4 +10,5 @@ abstract interface class RentalRepository {
   });
   Future<Map<String, dynamic>> createRental(CreateRentalRequest request);
   Future<Map<String, dynamic>> getDashboardStats({String? tenantId});
+  Future<Map<String, dynamic>> cancelRental(String rentalId, {String? tenantId});
 }
