@@ -4,9 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
-import '../../../customers/domain/entities/customer.dart';
 import '../../../customers/presentation/providers/customer_providers.dart';
 import '../../../../shared/widgets/app_empty_state.dart';
+import '../widgets/new_customer_dialog.dart';
 
 class AdminCustomersPage extends ConsumerWidget {
   const AdminCustomersPage({super.key});
@@ -28,7 +28,10 @@ class AdminCustomersPage extends ConsumerWidget {
                 style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w700),
               ),
               FilledButton.icon(
-                onPressed: () => _showAddDialog(context, ref),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => const NewCustomerDialog(),
+                ),
                 icon: const Icon(Icons.person_add_outlined),
                 label: const Text('Yeni Müşteri'),
               ),
@@ -77,46 +80,4 @@ class AdminCustomersPage extends ConsumerWidget {
     );
   }
 
-  void _showAddDialog(BuildContext context, WidgetRef ref) {
-    final firstName = TextEditingController();
-    final lastName = TextEditingController();
-    final email = TextEditingController();
-    final phone = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Yeni Müşteri'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: firstName, decoration: const InputDecoration(labelText: 'Ad')),
-              TextField(controller: lastName, decoration: const InputDecoration(labelText: 'Soyad')),
-              TextField(controller: email, decoration: const InputDecoration(labelText: 'E-posta')),
-              TextField(controller: phone, decoration: const InputDecoration(labelText: 'Telefon')),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal')),
-          FilledButton(
-            onPressed: () async {
-              await ref.read(customerRepositoryProvider).createCustomer(
-                    CreateCustomerRequest(
-                      firstName: firstName.text,
-                      lastName: lastName.text,
-                      email: email.text,
-                      phone: phone.text,
-                    ),
-                  );
-              ref.invalidate(customerListProvider);
-              if (context.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Kaydet'),
-          ),
-        ],
-      ),
-    );
-  }
 }
