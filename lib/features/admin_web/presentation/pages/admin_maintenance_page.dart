@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design_system/app_spacing.dart';
-import '../../../../core/formatters/currency_formatter.dart';
 import '../../../fleet/presentation/providers/fleet_providers.dart';
 import '../providers/admin_extra_providers.dart';
 import '../../../../shared/widgets/app_empty_state.dart';
@@ -94,48 +93,6 @@ class AdminMaintenancePage extends ConsumerWidget {
               if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Kaydet'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class AdminInvoicesPage extends ConsumerWidget {
-  const AdminInvoicesPage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final listAsync = ref.watch(invoiceListProvider);
-
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Faturalar', style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w700)),
-          const SizedBox(height: AppSpacing.xl),
-          Expanded(
-            child: listAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => AppEmptyState(title: 'Yüklenemedi', message: '$e'),
-              data: (items) => Card(
-                child: ListView.separated(
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, i) {
-                    final inv = items[i];
-                    final total = (inv['total_amount'] as num?)?.toDouble() ?? 0;
-                    return ListTile(
-                      leading: const Icon(Icons.receipt_long),
-                      title: Text('${inv['invoice_number']}'),
-                      subtitle: Text('${inv['status']}'),
-                      trailing: Text(CurrencyFormatter.format(total, context)),
-                    );
-                  },
-                ),
-              ),
-            ),
           ),
         ],
       ),

@@ -11,6 +11,7 @@ import '../presentation/pages/admin_checkin_page.dart';
 import '../presentation/pages/admin_customers_page.dart';
 import '../presentation/pages/admin_dashboard_page.dart';
 import '../presentation/pages/admin_fleet_page.dart';
+import '../presentation/pages/admin_invoices_page.dart';
 import '../presentation/pages/admin_payments_page.dart';
 import '../presentation/pages/admin_rentals_page.dart';
 import '../presentation/pages/admin_reports_page.dart';
