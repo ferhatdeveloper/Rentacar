@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
@@ -64,6 +65,9 @@ class _NewCustomerDialogState extends ConsumerState<NewCustomerDialog> {
 
   // Belge Tara
   String _documentType = 'Kimlik Belgesi';
+  final _picker = ImagePicker();
+  final Map<String, Uint8List> _scans = {};
+  bool _scanning = false;
 
   bool _saving = false;
 
@@ -354,9 +358,45 @@ class _NewCustomerDialogState extends ConsumerState<NewCustomerDialog> {
     ]);
   }
 
+  Future<void> _scan(ImageSource source) async {
+    setState(() => _scanning = true);
+    try {
+      final file = await _picker.pickImage(
+        source: source,
+        imageQuality: 70,
+        maxWidth: 1600,
+      );
+      if (file != null) {
+        final bytes = await file.readAsBytes();
+        if (!mounted) return;
+        setState(() => _scans[_documentType] = bytes);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$_documentType tarandı')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Tarama yapılamadı: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+  }
+
   Widget _scanTab() {
+    final current = _scans[_documentType];
     return _tabScroll([
       _sectionTitle('Belge Tara'),
+      Text(
+        'Müşteri kimlik / ehliyet / pasaport belgesini kamera veya tarayıcı '
+        '(dosya) ile yükleyin.',
+        style: Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.copyWith(color: AppColors.textSecondary),
+      ),
+      const SizedBox(height: AppSpacing.md),
       for (final doc in const ['Kimlik Belgesi', 'Ehliyet Belgesi', 'Pasaport'])
         RadioListTile<String>(
           contentPadding: EdgeInsets.zero,
@@ -364,25 +404,85 @@ class _NewCustomerDialogState extends ConsumerState<NewCustomerDialog> {
           value: doc,
           groupValue: _documentType,
           onChanged: (v) => setState(() => _documentType = v!),
-          title: Text(doc),
+          title: Row(
+            children: [
+              Text(doc),
+              if (_scans.containsKey(doc)) ...[
+                const SizedBox(width: AppSpacing.sm),
+                const Icon(Icons.check_circle, size: 16, color: AppColors.success),
+              ],
+            ],
+          ),
         ),
       const SizedBox(height: AppSpacing.md),
-      Center(
-        child: Column(
-          children: [
-            Icon(Icons.scanner_outlined, size: 64, color: AppColors.textSecondary),
-            const SizedBox(height: AppSpacing.sm),
-            OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$_documentType taraması başlatıldı (demo)')),
-                );
-              },
-              icon: const Icon(Icons.document_scanner_outlined),
-              label: const Text('Taramayı Başlat'),
+      Wrap(
+        spacing: AppSpacing.md,
+        runSpacing: AppSpacing.sm,
+        children: [
+          FilledButton.icon(
+            onPressed: _scanning ? null : () => _scan(ImageSource.camera),
+            icon: const Icon(Icons.photo_camera_outlined),
+            label: const Text('Kamera ile Çek'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _scanning ? null : () => _scan(ImageSource.gallery),
+            icon: const Icon(Icons.document_scanner_outlined),
+            label: const Text('Tarayıcı / Dosyadan Yükle'),
+          ),
+          if (_scanning)
+            const Padding(
+              padding: EdgeInsets.all(AppSpacing.sm),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             ),
-          ],
+        ],
+      ),
+      const SizedBox(height: AppSpacing.lg),
+      Container(
+        height: 240,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.12)),
         ),
+        clipBehavior: Clip.antiAlias,
+        child: current != null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.memory(current, fit: BoxFit.contain),
+                  Positioned(
+                    top: AppSpacing.sm,
+                    right: AppSpacing.sm,
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        tooltip: 'Kaldır',
+                        icon: const Icon(Icons.delete_outline, color: Colors.white, size: 20),
+                        onPressed: () => setState(() => _scans.remove(_documentType)),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.image_outlined, size: 56, color: AppColors.textSecondary),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      '$_documentType için önizleme yok',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
       ),
     ]);
   }
