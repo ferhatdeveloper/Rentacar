@@ -8,6 +8,7 @@ import '../../../../core/design_system/app_spacing.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../../customers/presentation/providers/customer_providers.dart';
 import '../../../../shared/widgets/app_empty_state.dart';
+import '../widgets/grid_column_header.dart';
 import '../widgets/new_customer_dialog.dart';
 
 enum _BalanceFilter { all, debtor, creditor }
@@ -25,9 +26,40 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
   _BalanceFilter _filter = _BalanceFilter.all;
   int? _sortCol;
   bool _sortAsc = true;
+  final Map<int, Set<String>> _colFilters = {};
 
   static final _dateFmt = DateFormat('dd.MM.yyyy');
   static final _money = NumberFormat('#,##0.00', 'tr');
+
+  String _cellValue(int col, Customer c) => switch (col) {
+        0 => c.createdAt != null ? _dateFmt.format(c.createdAt!) : '-',
+        1 => c.country ?? '-',
+        2 => c.fullName,
+        3 => c.address ?? '-',
+        4 => c.email ?? '-',
+        5 => c.phone ?? '-',
+        6 => _money.format(c.debtTotal),
+        7 => _money.format(c.creditTotal),
+        8 => _money.format(c.balance),
+        _ => '',
+      };
+
+  List<String> _distinct(int col, List<Customer> all) {
+    final set = <String>{for (final c in all) _cellValue(col, c)};
+    final list = set.toList()..sort();
+    return list;
+  }
+
+  List<Customer> _applyColumnFilters(List<Customer> rows) {
+    if (_colFilters.values.every((s) => s.isEmpty)) return rows;
+    return rows.where((c) {
+      for (final entry in _colFilters.entries) {
+        if (entry.value.isEmpty) continue;
+        if (!entry.value.contains(_cellValue(entry.key, c))) return false;
+      }
+      return true;
+    }).toList();
+  }
 
   @override
   void dispose() {
@@ -74,11 +106,17 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
     return sorted;
   }
 
-  void _onSort(int col, bool asc) =>
-      setState(() {
-        _sortCol = col;
-        _sortAsc = asc;
+  void _toggleSort(int col) => setState(() {
+        if (_sortCol == col) {
+          _sortAsc = !_sortAsc;
+        } else {
+          _sortCol = col;
+          _sortAsc = true;
+        }
       });
+
+  void _setColumnFilter(int col, Set<String> values) =>
+      setState(() => _colFilters[col] = values);
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +157,7 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
               ),
             ),
             data: (all) {
-              final rows = _sort(_apply(all));
+              final rows = _sort(_applyColumnFilters(_apply(all)));
               return Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +167,7 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
                     Expanded(
                       child: rows.isEmpty
                           ? const AppEmptyState(title: 'Müşteri bulunamadı')
-                          : _table(rows),
+                          : _table(rows, all),
                     ),
                   ],
                 ),
@@ -191,7 +229,23 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
     );
   }
 
-  Widget _table(List<Customer> rows) {
+  DataColumn _col(int index, String title, List<Customer> all, {bool numeric = false}) {
+    return DataColumn(
+      numeric: numeric,
+      label: GridColumnHeader(
+        title: title,
+        columnIndex: index,
+        activeSortIndex: _sortCol,
+        ascending: _sortAsc,
+        onSort: _toggleSort,
+        distinctValues: _distinct(index, all),
+        selected: _colFilters[index] ?? const <String>{},
+        onApply: (v) => _setColumnFilter(index, v),
+      ),
+    );
+  }
+
+  Widget _table(List<Customer> rows, List<Customer> all) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -204,8 +258,6 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
           scrollDirection: Axis.horizontal,
           child: SingleChildScrollView(
             child: DataTable(
-              sortColumnIndex: _sortCol,
-              sortAscending: _sortAsc,
               dividerThickness: 0.4,
               headingRowColor: WidgetStatePropertyAll(
                 Colors.black.withValues(alpha: 0.02),
@@ -216,15 +268,15 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
                 fontSize: 13,
               ),
               columns: [
-                DataColumn(label: const Text('Tarih'), onSort: _onSort),
-                DataColumn(label: const Text('Ülke'), onSort: _onSort),
-                DataColumn(label: const Text('Ünvan / Adı Soyadı'), onSort: _onSort),
-                DataColumn(label: const Text('Ev Adresi'), onSort: _onSort),
-                DataColumn(label: const Text('E-Posta'), onSort: _onSort),
-                DataColumn(label: const Text('Gsm'), onSort: _onSort),
-                DataColumn(label: const Text('Borç Toplam'), numeric: true, onSort: _onSort),
-                DataColumn(label: const Text('Alacak Toplam'), numeric: true, onSort: _onSort),
-                DataColumn(label: const Text('Bakiye'), numeric: true, onSort: _onSort),
+                _col(0, 'Tarih', all),
+                _col(1, 'Ülke', all),
+                _col(2, 'Ünvan / Adı Soyadı', all),
+                _col(3, 'Ev Adresi', all),
+                _col(4, 'E-Posta', all),
+                _col(5, 'Gsm', all),
+                _col(6, 'Borç Toplam', all, numeric: true),
+                _col(7, 'Alacak Toplam', all, numeric: true),
+                _col(8, 'Bakiye', all, numeric: true),
                 const DataColumn(label: Text('')),
               ],
               rows: [

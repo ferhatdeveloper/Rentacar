@@ -7,6 +7,7 @@ import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
 import '../../../../shared/widgets/app_empty_state.dart';
 import '../providers/admin_extra_providers.dart';
+import '../widgets/grid_column_header.dart';
 
 class AdminInvoicesPage extends ConsumerStatefulWidget {
   const AdminInvoicesPage({super.key});
@@ -20,6 +21,7 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
   String _query = '';
   int? _sortCol;
   bool _sortAsc = true;
+  final Map<int, Set<String>> _colFilters = {};
 
   static final _money = NumberFormat('#,##0.00', 'tr');
 
@@ -31,6 +33,39 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
     final d = raw != null ? DateTime.tryParse(raw) : null;
     return d != null ? DateFormat('dd.MM.yyyy').format(d) : '-';
   }
+
+  String _cellValue(int col, Map<String, dynamic> inv) => switch (col) {
+        0 => _date(inv),
+        1 => '${inv['branch'] ?? 'MERKEZ'}',
+        2 => '${inv['type'] ?? 'Satış Faturası'}',
+        3 => '${inv['invoice_number'] ?? '-'}',
+        4 => '${inv['e_doc_no'] ?? '-'}',
+        5 => '${inv['title'] ?? '-'}',
+        6 => '${inv['status'] ?? '-'}',
+        7 => _money.format(_num(inv, 'total_amount')),
+        8 => _money.format(_num(inv, 'vat_amount')),
+        9 => _money.format(_num(inv, 'grand_total')),
+        _ => '',
+      };
+
+  List<String> _distinct(int col, List<Map<String, dynamic>> all) {
+    final set = <String>{for (final inv in all) _cellValue(col, inv)};
+    return set.toList()..sort();
+  }
+
+  List<Map<String, dynamic>> _applyColumnFilters(List<Map<String, dynamic>> rows) {
+    if (_colFilters.values.every((s) => s.isEmpty)) return rows;
+    return rows.where((inv) {
+      for (final entry in _colFilters.entries) {
+        if (entry.value.isEmpty) continue;
+        if (!entry.value.contains(_cellValue(entry.key, inv))) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  void _setColumnFilter(int col, Set<String> values) =>
+      setState(() => _colFilters[col] = values);
 
   @override
   void dispose() {
@@ -71,9 +106,13 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
     return sorted;
   }
 
-  void _onSort(int col, bool asc) => setState(() {
-        _sortCol = col;
-        _sortAsc = asc;
+  void _toggleSort(int col) => setState(() {
+        if (_sortCol == col) {
+          _sortAsc = !_sortAsc;
+        } else {
+          _sortCol = col;
+          _sortAsc = true;
+        }
       });
 
   @override
@@ -95,7 +134,7 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => AppEmptyState(title: 'Yüklenemedi', message: '$e'),
               data: (all) {
-                final rows = _sort(_apply(all));
+                final rows = _sort(_applyColumnFilters(_apply(all)));
                 final totalSum =
                     rows.fold<double>(0, (s, m) => s + _num(m, 'total_amount'));
                 final vatSum =
@@ -110,7 +149,7 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
                     Expanded(
                       child: rows.isEmpty
                           ? const AppEmptyState(title: 'Fatura bulunamadı')
-                          : _table(rows),
+                          : _table(rows, all),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     _totalsBar(totalSum, vatSum, grandSum),
@@ -164,7 +203,24 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
     );
   }
 
-  Widget _table(List<Map<String, dynamic>> rows) {
+  DataColumn _col(int index, String title, List<Map<String, dynamic>> all,
+      {bool numeric = false}) {
+    return DataColumn(
+      numeric: numeric,
+      label: GridColumnHeader(
+        title: title,
+        columnIndex: index,
+        activeSortIndex: _sortCol,
+        ascending: _sortAsc,
+        onSort: _toggleSort,
+        distinctValues: _distinct(index, all),
+        selected: _colFilters[index] ?? const <String>{},
+        onApply: (v) => _setColumnFilter(index, v),
+      ),
+    );
+  }
+
+  Widget _table(List<Map<String, dynamic>> rows, List<Map<String, dynamic>> all) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -177,8 +233,6 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
           scrollDirection: Axis.horizontal,
           child: SingleChildScrollView(
             child: DataTable(
-              sortColumnIndex: _sortCol,
-              sortAscending: _sortAsc,
               dividerThickness: 0.4,
               headingRowColor: WidgetStatePropertyAll(
                 Colors.black.withValues(alpha: 0.02),
@@ -189,16 +243,16 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
                 fontSize: 13,
               ),
               columns: [
-                DataColumn(label: const Text('Tarih'), onSort: _onSort),
-                DataColumn(label: const Text('Şube'), onSort: _onSort),
-                DataColumn(label: const Text('Türü'), onSort: _onSort),
-                DataColumn(label: const Text('Fatura No'), onSort: _onSort),
-                DataColumn(label: const Text('E-Evrak Takip No'), onSort: _onSort),
-                DataColumn(label: const Text('Fatura Başlık'), onSort: _onSort),
-                DataColumn(label: const Text('Gönderim'), onSort: _onSort),
-                DataColumn(label: const Text('Toplam Tutar'), numeric: true, onSort: _onSort),
-                DataColumn(label: const Text('Kdv Tutar'), numeric: true, onSort: _onSort),
-                DataColumn(label: const Text('Genel Toplam'), numeric: true, onSort: _onSort),
+                _col(0, 'Tarih', all),
+                _col(1, 'Şube', all),
+                _col(2, 'Türü', all),
+                _col(3, 'Fatura No', all),
+                _col(4, 'E-Evrak Takip No', all),
+                _col(5, 'Fatura Başlık', all),
+                _col(6, 'Gönderim', all),
+                _col(7, 'Toplam Tutar', all, numeric: true),
+                _col(8, 'Kdv Tutar', all, numeric: true),
+                _col(9, 'Genel Toplam', all, numeric: true),
               ],
               rows: [
                 for (final inv in rows)
