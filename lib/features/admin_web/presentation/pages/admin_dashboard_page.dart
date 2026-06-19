@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
+import '../../../fleet/domain/entities/vehicle.dart';
+import '../../../fleet/presentation/providers/fleet_providers.dart';
 import '../../../rentals/presentation/providers/rental_providers.dart';
 import '../../../../shared/widgets/app_kpi_card.dart';
 
@@ -13,27 +15,41 @@ class AdminDashboardPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(dashboardStatsProvider);
+    final vehiclesAsync = ref.watch(vehicleListProvider);
 
     return statsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Dashboard yüklenemedi: $e')),
-      data: (stats) => _DashboardBody(stats: stats),
+      data: (stats) => _DashboardBody(
+        stats: stats,
+        vehicles: vehiclesAsync.valueOrNull ?? const [],
+      ),
     );
   }
 }
 
 class _DashboardBody extends StatelessWidget {
-  const _DashboardBody({required this.stats});
+  const _DashboardBody({required this.stats, required this.vehicles});
 
   final Map<String, dynamic> stats;
+  final List<Vehicle> vehicles;
+
+  int _count(bool Function(Vehicle) test) => vehicles.where(test).length;
 
   @override
   Widget build(BuildContext context) {
     final utilization = stats['utilization_rate']?.toString() ?? '0';
     final revenue = stats['monthly_revenue'];
-    final revenueLabel = revenue is num
-        ? '₺${(revenue / 1000).toStringAsFixed(1)}K'
-        : '₺0';
+    final revenueLabel =
+        revenue is num ? '₺${(revenue / 1000).toStringAsFixed(1)}K' : '₺0';
+
+    final totalVehicles = vehicles.isNotEmpty
+        ? vehicles.length
+        : (stats['total_vehicles'] as num?)?.toInt() ?? 0;
+    final availableVehicles = vehicles.isNotEmpty
+        ? _count((v) => v.status == VehicleStatus.available)
+        : (stats['available_vehicles'] as num?)?.toInt() ?? 0;
+    final rentedVehicles = _count((v) => v.status == VehicleStatus.rented);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -42,22 +58,24 @@ class _DashboardBody extends StatelessWidget {
         children: [
           Text(
             'Dashboard',
-            style: GoogleFonts.outfit(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
+            style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Filo ve rezervasyonlarınıza genel bakış',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.xl),
           LayoutBuilder(
             builder: (context, constraints) {
-              final crossAxisCount = constraints.maxWidth > 900 ? 4 : 2;
+              final crossAxisCount = constraints.maxWidth > 1100
+                  ? 4
+                  : constraints.maxWidth > 700
+                      ? 3
+                      : 2;
               return GridView.count(
                 crossAxisCount: crossAxisCount,
                 shrinkWrap: true,
@@ -67,14 +85,25 @@ class _DashboardBody extends StatelessWidget {
                 childAspectRatio: 1.6,
                 children: [
                   AppKpiCard(
+                    title: 'Günlük Çıkış',
+                    value: '${stats['today_pickups'] ?? 0}',
+                    icon: Icons.login,
+                  ),
+                  AppKpiCard(
+                    title: 'Günlük Dönüş',
+                    value: '${stats['today_returns'] ?? 0}',
+                    icon: Icons.logout,
+                    accentColor: AppColors.success,
+                  ),
+                  AppKpiCard(
                     title: 'Aktif Kiralama',
                     value: '${stats['active_rentals'] ?? 0}',
                     icon: Icons.key,
                   ),
                   AppKpiCard(
-                    title: 'Bugün Teslim',
-                    value: '${stats['today_pickups'] ?? 0}',
-                    icon: Icons.login,
+                    title: 'Günlük Ciro',
+                    value: revenueLabel,
+                    icon: Icons.payments_outlined,
                   ),
                   AppKpiCard(
                     title: 'Doluluk Oranı',
@@ -83,17 +112,183 @@ class _DashboardBody extends StatelessWidget {
                     accentColor: AppColors.success,
                   ),
                   AppKpiCard(
-                    title: 'Bu Ay Gelir',
-                    value: revenueLabel,
-                    icon: Icons.payments_outlined,
+                    title: 'Toplam Araç',
+                    value: '$totalVehicles',
+                    icon: Icons.directions_car_filled,
+                  ),
+                  AppKpiCard(
+                    title: 'Kirada',
+                    value: '$rentedVehicles',
+                    icon: Icons.car_rental,
+                    accentColor: const Color(0xFF2563EB),
+                  ),
+                  AppKpiCard(
+                    title: 'Müsait Araç',
+                    value: '$availableVehicles',
+                    icon: Icons.check_circle_outline,
+                    accentColor: AppColors.success,
                   ),
                 ],
               );
             },
           ),
           const SizedBox(height: AppSpacing.xl),
+          _VehicleStatusTable(vehicles: vehicles),
+          const SizedBox(height: AppSpacing.xl),
           const _GanttPreview(),
         ],
+      ),
+    );
+  }
+}
+
+/// Beto Yazılım referansındaki "Araç Durumu" tablosunun karşılığı —
+/// araçları sınıfa (kategori) göre gruplar ve duruma göre sayar.
+/// Başlıklara tıklayarak sıralanabilir.
+class _VehicleStatusTable extends StatefulWidget {
+  const _VehicleStatusTable({required this.vehicles});
+
+  final List<Vehicle> vehicles;
+
+  @override
+  State<_VehicleStatusTable> createState() => _VehicleStatusTableState();
+}
+
+class _VehicleStatusTableState extends State<_VehicleStatusTable> {
+  int? _sortCol;
+  bool _sortAsc = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final vehicles = widget.vehicles;
+    final classes = <String>{for (final v in vehicles) v.categoryName}.toList();
+
+    int countFor(String cls, VehicleStatus? status) => vehicles
+        .where((v) =>
+            v.categoryName == cls && (status == null || v.status == status))
+        .length;
+
+    final col = _sortCol;
+    if (col == null) {
+      classes.sort();
+    } else {
+      classes.sort((a, b) {
+        final c = switch (col) {
+          1 => countFor(a, null).compareTo(countFor(b, null)),
+          2 => countFor(a, VehicleStatus.available)
+              .compareTo(countFor(b, VehicleStatus.available)),
+          3 => countFor(a, VehicleStatus.rented)
+              .compareTo(countFor(b, VehicleStatus.rented)),
+          4 => countFor(a, VehicleStatus.maintenance)
+              .compareTo(countFor(b, VehicleStatus.maintenance)),
+          _ => a.toLowerCase().compareTo(b.toLowerCase()),
+        };
+        return _sortAsc ? c : -c;
+      });
+    }
+
+    void onSort(int i, bool asc) => setState(() {
+          _sortCol = i;
+          _sortAsc = asc;
+        });
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Araç Durumu',
+            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (classes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Text('Araç verisi bulunamadı'),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                sortColumnIndex: _sortCol,
+                sortAscending: _sortAsc,
+                dividerThickness: 0.4,
+                headingTextStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+                columns: [
+                  DataColumn(label: const Text('Sınıf'), onSort: onSort),
+                  DataColumn(label: const Text('Mevcut'), numeric: true, onSort: onSort),
+                  DataColumn(label: const Text('Müsait'), numeric: true, onSort: onSort),
+                  DataColumn(label: const Text('Kirada'), numeric: true, onSort: onSort),
+                  DataColumn(label: const Text('Bakım'), numeric: true, onSort: onSort),
+                  const DataColumn(label: Text('Son Durum')),
+                ],
+                rows: [
+                  for (final cls in classes)
+                    DataRow(cells: [
+                      DataCell(Text(cls, style: const TextStyle(fontWeight: FontWeight.w600))),
+                      DataCell(Text('${countFor(cls, null)}')),
+                      DataCell(_CountChip(
+                        count: countFor(cls, VehicleStatus.available),
+                        color: AppColors.success,
+                      )),
+                      DataCell(_CountChip(
+                        count: countFor(cls, VehicleStatus.rented),
+                        color: const Color(0xFF2563EB),
+                      )),
+                      DataCell(_CountChip(
+                        count: countFor(cls, VehicleStatus.maintenance),
+                        color: AppColors.warning,
+                      )),
+                      DataCell(Text(
+                        countFor(cls, VehicleStatus.available) > 0 ? 'Müsait' : 'Dolu',
+                        style: TextStyle(
+                          color: countFor(cls, VehicleStatus.available) > 0
+                              ? AppColors.success
+                              : AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )),
+                    ]),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountChip extends StatelessWidget {
+  const _CountChip({required this.count, required this.color});
+
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = count == 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: (muted ? AppColors.textSecondary : color).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+          color: muted ? AppColors.textSecondary : color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -112,10 +307,7 @@ class _GanttPreview extends StatelessWidget {
           children: [
             Text(
               'Filo Gantt',
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.lg),
             ...[

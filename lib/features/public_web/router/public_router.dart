@@ -7,7 +7,7 @@ import '../../../core/design_system/app_colors.dart';
 import '../../../core/design_system/app_spacing.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
-import '../../../shared/widgets/language_selector.dart';
+import '../../../shared/widgets/language_buttons.dart';
 import '../presentation/pages/booking_page.dart';
 import '../presentation/pages/home_page.dart';
 import '../presentation/pages/vehicles_page.dart';
@@ -102,14 +102,15 @@ class _PublicNavBar extends StatelessWidget {
                       label: l10n.navBooking,
                       onTap: () => context.go('/rezervasyon'),
                     ),
-                    const LanguageSelector(compact: true),
+                    const LanguageButtons(),
                     const SizedBox(width: AppSpacing.sm),
                     FilledButton(
                       onPressed: () => context.go('/rezervasyon'),
                       child: Text(l10n.navRentNow),
                     ),
                   ] else ...[
-                    const LanguageSelector(compact: true),
+                    const LanguageButtons(),
+                    const SizedBox(width: AppSpacing.sm),
                     IconButton(
                       onPressed: () => context.go('/rezervasyon'),
                       icon: const Icon(Icons.search),

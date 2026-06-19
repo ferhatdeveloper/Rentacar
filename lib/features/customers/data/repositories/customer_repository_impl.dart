@@ -20,7 +20,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
           .map((e) => Customer.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     } catch (_) {
-      if (AppConfig.useDemoFallback) return [Customer.demo];
+      if (AppConfig.useDemoFallback) return Customer.demoList;
       throw const NetworkException();
     }
   }

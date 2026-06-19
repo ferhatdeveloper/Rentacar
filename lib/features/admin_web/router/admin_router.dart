@@ -6,10 +6,12 @@ import '../../auth/presentation/pages/admin_login_page.dart';
 import '../../auth/presentation/providers/auth_providers.dart';
 import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
+import '../../../../shared/widgets/language_buttons.dart';
 import '../presentation/pages/admin_checkin_page.dart';
 import '../presentation/pages/admin_customers_page.dart';
 import '../presentation/pages/admin_dashboard_page.dart';
 import '../presentation/pages/admin_fleet_page.dart';
+import '../presentation/pages/admin_invoices_page.dart';
 import '../presentation/pages/admin_payments_page.dart';
 import '../presentation/pages/admin_rentals_page.dart';
 import '../presentation/pages/admin_reports_page.dart';
@@ -279,6 +281,8 @@ class _AdminTopBar extends StatelessWidget {
               onPressed: () => scaffoldKey.currentState?.openDrawer(),
             ),
           const Spacer(),
+          const LanguageButtons(),
+          const SizedBox(width: AppSpacing.md),
           Text(userName, style: const TextStyle(fontWeight: FontWeight.w500)),
           const SizedBox(width: AppSpacing.sm),
           PopupMenuButton<String>(

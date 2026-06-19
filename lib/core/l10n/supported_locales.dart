@@ -31,4 +31,13 @@ abstract final class SupportedLocales {
         'ckb' => 'کوردی (سۆرانی)',
         _ => languageCode,
       };
+
+  /// Dil değiştirme butonları için kısa etiket.
+  static String shortLabel(String languageCode) => switch (languageCode) {
+        'ar' => 'AR',
+        'tr' => 'TR',
+        'en' => 'EN',
+        'ckb' => 'KU',
+        _ => languageCode.toUpperCase(),
+      };
 }
