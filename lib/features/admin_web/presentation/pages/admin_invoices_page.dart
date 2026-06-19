@@ -18,6 +18,8 @@ class AdminInvoicesPage extends ConsumerStatefulWidget {
 class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  int? _sortCol;
+  bool _sortAsc = true;
 
   static final _money = NumberFormat('#,##0.00', 'tr');
 
@@ -45,6 +47,35 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
     }).toList();
   }
 
+  List<Map<String, dynamic>> _sort(List<Map<String, dynamic>> rows) {
+    final col = _sortCol;
+    if (col == null) return rows;
+    const keys = [
+      'created_at', 'branch', 'type', 'invoice_number', 'e_doc_no',
+      'title', 'status', 'total_amount', 'vat_amount', 'grand_total',
+    ];
+    final key = keys[col];
+    final numeric = col >= 7;
+    final sorted = [...rows];
+    sorted.sort((a, b) {
+      final int c;
+      if (numeric) {
+        c = _num(a, key).compareTo(_num(b, key));
+      } else {
+        c = (a[key] ?? '').toString().toLowerCase().compareTo(
+              (b[key] ?? '').toString().toLowerCase(),
+            );
+      }
+      return _sortAsc ? c : -c;
+    });
+    return sorted;
+  }
+
+  void _onSort(int col, bool asc) => setState(() {
+        _sortCol = col;
+        _sortAsc = asc;
+      });
+
   @override
   Widget build(BuildContext context) {
     final listAsync = ref.watch(invoiceListProvider);
@@ -64,7 +95,7 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => AppEmptyState(title: 'Yüklenemedi', message: '$e'),
               data: (all) {
-                final rows = _apply(all);
+                final rows = _sort(_apply(all));
                 final totalSum =
                     rows.fold<double>(0, (s, m) => s + _num(m, 'total_amount'));
                 final vatSum =
@@ -94,78 +125,80 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
   }
 
   Widget _searchBar(int count) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.sm,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 320,
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (v) => setState(() => _query = v),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Fatura başlığı veya fatura no...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            setState(() => _query = '');
-                          },
-                        ),
-                ),
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 300,
+          child: TextField(
+            controller: _searchCtrl,
+            onChanged: (v) => setState(() => _query = v),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              hintText: 'Ara: fatura başlığı veya no',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
               ),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.amber.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$count kayıt bulundu',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        Text(
+          '$count kayıt',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+      ],
     );
   }
 
   Widget _table(List<Map<String, dynamic>> rows) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Scrollbar(
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SingleChildScrollView(
             child: DataTable(
-              headingTextStyle: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+              sortColumnIndex: _sortCol,
+              sortAscending: _sortAsc,
+              dividerThickness: 0.4,
+              headingRowColor: WidgetStatePropertyAll(
+                Colors.black.withValues(alpha: 0.02),
               ),
-              columns: const [
-                DataColumn(label: Text('Tarih')),
-                DataColumn(label: Text('Şube')),
-                DataColumn(label: Text('Türü')),
-                DataColumn(label: Text('Fatura No')),
-                DataColumn(label: Text('E-Evrak Takip No')),
-                DataColumn(label: Text('Fatura Başlık')),
-                DataColumn(label: Text('Gönderim')),
-                DataColumn(label: Text('Toplam Tutar'), numeric: true),
-                DataColumn(label: Text('Kdv Tutar'), numeric: true),
-                DataColumn(label: Text('Genel Toplam'), numeric: true),
+              headingTextStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+              columns: [
+                DataColumn(label: const Text('Tarih'), onSort: _onSort),
+                DataColumn(label: const Text('Şube'), onSort: _onSort),
+                DataColumn(label: const Text('Türü'), onSort: _onSort),
+                DataColumn(label: const Text('Fatura No'), onSort: _onSort),
+                DataColumn(label: const Text('E-Evrak Takip No'), onSort: _onSort),
+                DataColumn(label: const Text('Fatura Başlık'), onSort: _onSort),
+                DataColumn(label: const Text('Gönderim'), onSort: _onSort),
+                DataColumn(label: const Text('Toplam Tutar'), numeric: true, onSort: _onSort),
+                DataColumn(label: const Text('Kdv Tutar'), numeric: true, onSort: _onSort),
+                DataColumn(label: const Text('Genel Toplam'), numeric: true, onSort: _onSort),
               ],
               rows: [
                 for (final inv in rows)

@@ -144,90 +144,125 @@ class _DashboardBody extends StatelessWidget {
 
 /// Beto Yazılım referansındaki "Araç Durumu" tablosunun karşılığı —
 /// araçları sınıfa (kategori) göre gruplar ve duruma göre sayar.
-class _VehicleStatusTable extends StatelessWidget {
+/// Başlıklara tıklayarak sıralanabilir.
+class _VehicleStatusTable extends StatefulWidget {
   const _VehicleStatusTable({required this.vehicles});
 
   final List<Vehicle> vehicles;
 
   @override
+  State<_VehicleStatusTable> createState() => _VehicleStatusTableState();
+}
+
+class _VehicleStatusTableState extends State<_VehicleStatusTable> {
+  int? _sortCol;
+  bool _sortAsc = true;
+
+  @override
   Widget build(BuildContext context) {
-    final classes = <String>{for (final v in vehicles) v.categoryName}.toList()
-      ..sort();
+    final vehicles = widget.vehicles;
+    final classes = <String>{for (final v in vehicles) v.categoryName}.toList();
 
     int countFor(String cls, VehicleStatus? status) => vehicles
-        .where((v) => v.categoryName == cls && (status == null || v.status == status))
+        .where((v) =>
+            v.categoryName == cls && (status == null || v.status == status))
         .length;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.grid_view_rounded, color: AppColors.amber, size: 20),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Araç Durumu',
-                  style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w600),
+    final col = _sortCol;
+    if (col == null) {
+      classes.sort();
+    } else {
+      classes.sort((a, b) {
+        final c = switch (col) {
+          1 => countFor(a, null).compareTo(countFor(b, null)),
+          2 => countFor(a, VehicleStatus.available)
+              .compareTo(countFor(b, VehicleStatus.available)),
+          3 => countFor(a, VehicleStatus.rented)
+              .compareTo(countFor(b, VehicleStatus.rented)),
+          4 => countFor(a, VehicleStatus.maintenance)
+              .compareTo(countFor(b, VehicleStatus.maintenance)),
+          _ => a.toLowerCase().compareTo(b.toLowerCase()),
+        };
+        return _sortAsc ? c : -c;
+      });
+    }
+
+    void onSort(int i, bool asc) => setState(() {
+          _sortCol = i;
+          _sortAsc = asc;
+        });
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Araç Durumu',
+            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (classes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Text('Araç verisi bulunamadı'),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                sortColumnIndex: _sortCol,
+                sortAscending: _sortAsc,
+                dividerThickness: 0.4,
+                headingTextStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
                 ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (classes.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                child: Text('Araç verisi bulunamadı'),
-              )
-            else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  headingTextStyle: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                  columns: const [
-                    DataColumn(label: Text('Sınıf')),
-                    DataColumn(label: Text('Mevcut'), numeric: true),
-                    DataColumn(label: Text('Müsait'), numeric: true),
-                    DataColumn(label: Text('Kirada'), numeric: true),
-                    DataColumn(label: Text('Bakım'), numeric: true),
-                    DataColumn(label: Text('Son Durum')),
-                  ],
-                  rows: [
-                    for (final cls in classes)
-                      DataRow(cells: [
-                        DataCell(Text(cls, style: const TextStyle(fontWeight: FontWeight.w600))),
-                        DataCell(Text('${countFor(cls, null)}')),
-                        DataCell(_CountChip(
-                          count: countFor(cls, VehicleStatus.available),
-                          color: AppColors.success,
-                        )),
-                        DataCell(_CountChip(
-                          count: countFor(cls, VehicleStatus.rented),
-                          color: const Color(0xFF2563EB),
-                        )),
-                        DataCell(_CountChip(
-                          count: countFor(cls, VehicleStatus.maintenance),
-                          color: AppColors.warning,
-                        )),
-                        DataCell(Text(
-                          countFor(cls, VehicleStatus.available) > 0 ? 'Müsait' : 'Dolu',
-                          style: TextStyle(
-                            color: countFor(cls, VehicleStatus.available) > 0
-                                ? AppColors.success
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        )),
-                      ]),
-                  ],
-                ),
+                columns: [
+                  DataColumn(label: const Text('Sınıf'), onSort: onSort),
+                  DataColumn(label: const Text('Mevcut'), numeric: true, onSort: onSort),
+                  DataColumn(label: const Text('Müsait'), numeric: true, onSort: onSort),
+                  DataColumn(label: const Text('Kirada'), numeric: true, onSort: onSort),
+                  DataColumn(label: const Text('Bakım'), numeric: true, onSort: onSort),
+                  const DataColumn(label: Text('Son Durum')),
+                ],
+                rows: [
+                  for (final cls in classes)
+                    DataRow(cells: [
+                      DataCell(Text(cls, style: const TextStyle(fontWeight: FontWeight.w600))),
+                      DataCell(Text('${countFor(cls, null)}')),
+                      DataCell(_CountChip(
+                        count: countFor(cls, VehicleStatus.available),
+                        color: AppColors.success,
+                      )),
+                      DataCell(_CountChip(
+                        count: countFor(cls, VehicleStatus.rented),
+                        color: const Color(0xFF2563EB),
+                      )),
+                      DataCell(_CountChip(
+                        count: countFor(cls, VehicleStatus.maintenance),
+                        color: AppColors.warning,
+                      )),
+                      DataCell(Text(
+                        countFor(cls, VehicleStatus.available) > 0 ? 'Müsait' : 'Dolu',
+                        style: TextStyle(
+                          color: countFor(cls, VehicleStatus.available) > 0
+                              ? AppColors.success
+                              : AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )),
+                    ]),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

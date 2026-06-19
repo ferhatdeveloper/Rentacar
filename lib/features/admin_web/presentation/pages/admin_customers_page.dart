@@ -23,6 +23,8 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
   final _searchCtrl = TextEditingController();
   String _query = '';
   _BalanceFilter _filter = _BalanceFilter.all;
+  int? _sortCol;
+  bool _sortAsc = true;
 
   static final _dateFmt = DateFormat('dd.MM.yyyy');
   static final _money = NumberFormat('#,##0.00', 'tr');
@@ -49,6 +51,34 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
       return matchesQuery && matchesFilter;
     }).toList();
   }
+
+  List<Customer> _sort(List<Customer> rows) {
+    final col = _sortCol;
+    if (col == null) return rows;
+    final sorted = [...rows];
+    sorted.sort((a, b) {
+      final c = switch (col) {
+        0 => (a.createdAt ?? DateTime(0)).compareTo(b.createdAt ?? DateTime(0)),
+        1 => (a.country ?? '').toLowerCase().compareTo((b.country ?? '').toLowerCase()),
+        2 => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()),
+        3 => (a.address ?? '').toLowerCase().compareTo((b.address ?? '').toLowerCase()),
+        4 => (a.email ?? '').toLowerCase().compareTo((b.email ?? '').toLowerCase()),
+        5 => (a.phone ?? '').compareTo(b.phone ?? ''),
+        6 => a.debtTotal.compareTo(b.debtTotal),
+        7 => a.creditTotal.compareTo(b.creditTotal),
+        8 => a.balance.compareTo(b.balance),
+        _ => 0,
+      };
+      return _sortAsc ? c : -c;
+    });
+    return sorted;
+  }
+
+  void _onSort(int col, bool asc) =>
+      setState(() {
+        _sortCol = col;
+        _sortAsc = asc;
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +119,7 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
               ),
             ),
             data: (all) {
-              final rows = _apply(all);
+              final rows = _sort(_apply(all));
               return Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,87 +142,90 @@ class _AdminCustomersPageState extends ConsumerState<AdminCustomersPage> {
   }
 
   Widget _searchBar(int count) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.sm,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 320,
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (v) => setState(() => _query = v),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Adı Soyadı, e-posta, telefon, ülke...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            setState(() => _query = '');
-                          },
-                        ),
-                ),
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 300,
+          child: TextField(
+            controller: _searchCtrl,
+            onChanged: (v) => setState(() => _query = v),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              hintText: 'Ara: ad, e-posta, telefon, ülke',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
               ),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
             ),
-            SegmentedButton<_BalanceFilter>(
-              segments: const [
-                ButtonSegment(value: _BalanceFilter.all, label: Text('Tümü')),
-                ButtonSegment(value: _BalanceFilter.debtor, label: Text('Borçlu')),
-                ButtonSegment(value: _BalanceFilter.creditor, label: Text('Alacaklı')),
-              ],
-              selected: {_filter},
-              onSelectionChanged: (s) => setState(() => _filter = s.first),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.amber.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$count kayıt bulundu',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        SegmentedButton<_BalanceFilter>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: _BalanceFilter.all, label: Text('Tümü')),
+            ButtonSegment(value: _BalanceFilter.debtor, label: Text('Borçlu')),
+            ButtonSegment(value: _BalanceFilter.creditor, label: Text('Alacaklı')),
+          ],
+          selected: {_filter},
+          onSelectionChanged: (s) => setState(() => _filter = s.first),
+        ),
+        Text(
+          '$count kayıt',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+      ],
     );
   }
 
   Widget _table(List<Customer> rows) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Scrollbar(
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SingleChildScrollView(
             child: DataTable(
-              headingTextStyle: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+              sortColumnIndex: _sortCol,
+              sortAscending: _sortAsc,
+              dividerThickness: 0.4,
+              headingRowColor: WidgetStatePropertyAll(
+                Colors.black.withValues(alpha: 0.02),
               ),
-              columns: const [
-                DataColumn(label: Text('Tarih')),
-                DataColumn(label: Text('Ülke')),
-                DataColumn(label: Text('Ünvan / Adı Soyadı')),
-                DataColumn(label: Text('Ev Adresi')),
-                DataColumn(label: Text('E-Posta')),
-                DataColumn(label: Text('Gsm')),
-                DataColumn(label: Text('Borç Toplam'), numeric: true),
-                DataColumn(label: Text('Alacak Toplam'), numeric: true),
-                DataColumn(label: Text('Bakiye'), numeric: true),
-                DataColumn(label: Text('')),
+              headingTextStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+              columns: [
+                DataColumn(label: const Text('Tarih'), onSort: _onSort),
+                DataColumn(label: const Text('Ülke'), onSort: _onSort),
+                DataColumn(label: const Text('Ünvan / Adı Soyadı'), onSort: _onSort),
+                DataColumn(label: const Text('Ev Adresi'), onSort: _onSort),
+                DataColumn(label: const Text('E-Posta'), onSort: _onSort),
+                DataColumn(label: const Text('Gsm'), onSort: _onSort),
+                DataColumn(label: const Text('Borç Toplam'), numeric: true, onSort: _onSort),
+                DataColumn(label: const Text('Alacak Toplam'), numeric: true, onSort: _onSort),
+                DataColumn(label: const Text('Bakiye'), numeric: true, onSort: _onSort),
+                const DataColumn(label: Text('')),
               ],
               rows: [
                 for (final c in rows)
